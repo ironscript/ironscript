@@ -1,0 +1,34 @@
+{
+  "name": "ironscript",
+  "version": "1.0.0",
+  "description": "A Minimal LISP-like Abstraction",
+  "main": "./dist/node/ironscript.js",
+  "scripts": {
+    "test": "node ./dist/node/ironscript.js ./test/test.is"
+  },
+  "bin" : {
+    "ironscript" : "node ./dist/node/ironscript.js"
+  },
+  "keywords": [
+    "meta",
+    "language",
+    "lisp",
+    "async",
+    "stream",
+    "rewriting",
+    "scheme",
+    "functional"
+  ],
+  "author": "Ganesh Prasad Sahoo <sir.gnsp@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "async-es": "^2.1.2"
+  },
+  "devDependencies": {
+    "babel-preset-es2015-rollup": "^1.2.0",
+    "rollup-plugin-babel": "^2.6.1",
+    "rollup-plugin-commonjs": "^5.0.5",
+    "rollup-plugin-eslint": "^3.0.0",
+    "rollup-plugin-node-resolve": "^2.0.0"
+  }
+}

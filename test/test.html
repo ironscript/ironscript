@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+  <head>
+    <title> IRONSCRIPT TEST </title>
+  </head>
+  <body>
+    <a href="#" id="click-link">Click</a>
+    <a href="#" id="unclick-link">Unclick</a>
+    <p id="msg"> </p>
+    <script type="text/javascript" src="../dist/browser/ironscript.min.js"></script>
+    <script type="text/ironscript" id="ironscript-main">
+
+      _begin
+        (_echo "hello")
+        (_def click-stream @{
+          document.getElementById("click-link").addEventListener("click", function() {
+            $yield(1);
+          });
+        }@ )
+        
+        (_def unclick-stream @{
+          document.getElementById("unclick-link").addEventListener("click", function() {
+            $yield(1);
+          });
+        }@ )
+        
+        (_def update-message-clicked @{
+          document.getElementById("msg").innerHTML = "clicked";
+        }@ )
+        
+        (_def update-message-unclicked @{
+          document.getElementById("msg").innerHTML = "unclicked";
+        }@ )
+        
+        (_do (_stream update-message-clicked (click-stream)))
+        (_do (_stream update-message-unclicked (unclick-stream)))
+
+
+    </script>
+  </body>
+</html>

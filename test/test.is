@@ -1,0 +1,84 @@
+; Copyright (c) 2016, Ganesh Prasad Sahoo <sir.gnsp@gmail.com>
+ 
+; Testing whether the Ironscript implementation is working OK or not.
+; This is a comment. And all comments should be ignored.
+; PS Comments start with ';' and end with the newline.
+
+_begin
+  (_def a 1) 
+  (_echo a)
+  
+  (_def + @{ $return (args[0]+args[1]); }@ )   ; implementation of the + op
+  (_def - @{ $return (args[0]-args[1]); }@ )
+  (_def * @{ $return (args[0]*args[1]); }@ )
+  (_def / @{ $return (args[0]/args[1]); }@ )
+  (_def == @{ $return (args[0]==args[1]); }@ )
+  (_def concat @{ 
+    let s = '';
+    for (let arg of args) s += arg;
+    $return (s);
+   }@ )
+  
+  (_echo (+ a a))
+
+  (_def twice (_fn (n) (+ n n)))
+  (_echo (twice (+ 1 3)))
+
+  (_def ! (_fn (n) 
+    (_if (== n 0) 1 (* n (! (- n 1) ) ) ) 
+  ))
+
+  (_rho '(@a + @b) (+ @a @b))
+  (_rho '(@a + @b + @c) (+ [@a + @b] @c))
+  (_echo [1 + 2 + 3])
+
+  (_rho '(@n !) (! @n) )
+  (_echo [5 !])
+
+
+  (_rho '(say hello to @name) (_echo (concat "Hello " @name "! Have a nice day.")))
+  (_rho '(say bye to @name) (_echo (concat "Well " @name ", I got to go. Bye.")))
+  
+  (_def me "GNSP@GNEOS")
+
+  [say hello to me]
+  [say bye to me]
+
+  (_rho '(@a should be @b) (_echo (concat @a " should be " @b " : " (_if (== @a @b) "passed" "failed" ) ) ) )
+
+  [(+ 1 2) should be 3]
+  [[5 !] should be 120]
+  [(twice 8) should be 16]
+  [(twice 4) should be 3]
+
+
+  (_def multMod (_eval
+    @[
+      _begin
+        (_rho '(@a * @b) (* @a @b))
+        (_def myFunc (_fn (x) (_echo x)))
+    ]@
+  ))
+
+  (_echo (multMod 2 * 3))
+  (_def myFunc (_get multMod myFunc))
+  (myFunc 5)
+
+
+  (_def import (_fn (filename) (_eval (_readfile filename) filename) ))
+  (_def mod (_import "./test1.is") )
+  (_echo (_get mod name))
+
+  (_echo '( (IronScript is) quite ready))
+
+  
+  (_def natstream @{ 
+    let i = 1;
+    setInterval (() => { $yield(i++); }, 1000);
+   }@
+  )
+  
+  (_def twiceNums (_stream * 2 (natstream)))
+  (_def echoStream (_fn (stream) (_stream _echo (stream) ) ) )
+  (_do (echoStream twiceNums))
+
