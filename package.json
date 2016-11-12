@@ -4,11 +4,14 @@
   "description": "A Minimal LISP-like Abstraction",
   "main": "./dist/node/ironscript.js",
   "scripts": {
-    "test": "node ./dist/node/ironscript.js ./test/test.is",
-    "build": "rollup -c ./rollup.node.config.js && rollup -c rollup.browser.config.js"
+    "test": "./dist/node/ironscript.js ./test/test.is",
+    "build": "rollup -c ./rollup.node.config.js && rollup -c rollup.browser.config.js",
+    "build-node": "rollup -c ./rollup.node.config.js && echo \"#!/usr/bin/env node \n \" | cat - ./dist/node/ironscript.js > ./dist/node/tmpfile && mv ./dist/node/tmpfile ./dist/node/ironscript.js && chmod +x ./dist/node/ironscript.js",
+    "build-browser": "rollup -c rollup.browser.config.js",
+    "build": "npm run build-node && npm run build-browser"
   },
   "bin" : {
-    "ironscript" : "node ./dist/node/ironscript.js"
+    "ironscript" : "./dist/node/ironscript.js"
   },
   "keywords": [
     "meta",
