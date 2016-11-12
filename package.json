@@ -5,13 +5,12 @@
   "main": "./dist/node/ironscript.js",
   "scripts": {
     "test": "./dist/node/ironscript.js ./test/test.is",
-    "build": "rollup -c ./rollup.node.config.js && rollup -c rollup.browser.config.js",
+    "build": "npm run build-node && npm run build-browser",
     "build-node": "rollup -c ./rollup.node.config.js && echo \"#!/usr/bin/env node \n \" | cat - ./dist/node/ironscript.js > ./dist/node/tmpfile && mv ./dist/node/tmpfile ./dist/node/ironscript.js && chmod +x ./dist/node/ironscript.js",
-    "build-browser": "rollup -c rollup.browser.config.js",
-    "build": "npm run build-node && npm run build-browser"
+    "build-browser": "rollup -c rollup.browser.config.js"
   },
-  "bin" : {
-    "ironscript" : "./dist/node/ironscript.js"
+  "bin": {
+    "ironscript": "./dist/node/ironscript.js"
   },
   "keywords": [
     "meta",
@@ -34,5 +33,16 @@
     "rollup-plugin-commonjs": "^5.0.5",
     "rollup-plugin-eslint": "^3.0.0",
     "rollup-plugin-node-resolve": "^2.0.0"
-  }
+  },
+  "directories": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GnsP/ironscript.git"
+  },
+  "bugs": {
+    "url": "https://github.com/GnsP/ironscript/issues"
+  },
+  "homepage": "https://github.com/GnsP/ironscript#readme"
 }
