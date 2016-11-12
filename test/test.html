@@ -6,32 +6,26 @@
   <body>
     <a href="#" id="click-link">Click</a>
     <a href="#" id="unclick-link">Unclick</a>
-    <p id="msg"> </p>
+    <p id="msg"></p>
     <script type="text/javascript" src="../dist/browser/ironscript.min.js"></script>
     <script type="text/ironscript" id="ironscript-main">
 
       _begin
-        (_echo "hello")
-        (_def click-stream @{
-          document.getElementById("click-link").addEventListener("click", function() {
-            $yield(1);
-          });
+        (_def attach-event @{
+          let id = args[0], event = args[1];
+          document.getElementById(id).addEventListener(event, ()=> {$yield(true);});
         }@ )
         
-        (_def unclick-stream @{
-          document.getElementById("unclick-link").addEventListener("click", function() {
-            $yield(1);
-          });
-        }@ )
+        (_def update-inner-html @{
+          let id = args[0], htm = args[1];
+          document.getElementById(id).innerHTML = htm;
+        }@)
         
-        (_def update-message-clicked @{
-          document.getElementById("msg").innerHTML = "clicked";
-        }@ )
-        
-        (_def update-message-unclicked @{
-          document.getElementById("msg").innerHTML = "unclicked";
-        }@ )
-        
+        (_def click-stream (_stream attach-event "click-link" "click") )
+        (_def unclick-stream (_stream attach-event "unclick-link" "click") )   
+        (_def update-message-clicked (_stream update-inner-html "msg" "clicked"))
+        (_def update-message-unclicked (_stream update-inner-html "msg" "unclicked"))
+     
         (_do (_stream update-message-clicked (click-stream)))
         (_do (_stream update-message-unclicked (unclick-stream)))
 
