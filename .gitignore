@@ -1,4 +1,7 @@
 node_modules
-*.log
-*.swp
+*log
+npm-debug.log*
+logs
+*swp
 *~
+.npm
