@@ -5528,13 +5528,20 @@ function importfn(env) {
 
 function includefn(env) {
   var readsource = env.map.get('_readsource');
-  var included = new Set();
+  var included = new Map();
+  var src = null;
   return function (err, _env, cb, sourcename) {
-    if (included.has(sourcename)) nextTick(cb, null, _env, null, null);else {
+    if (included.has(sourcename)) {
+      src = included.get(sourcename);
+      var p = new Parser({ name: sourcename, buffer: src });
+      nextTick(evalAsync, p.parse(), _env, function (err, _env, _cb, val) {
+        nextTick(cb, null, _env, null, null);
+      });
+    } else {
       nextTick(readsource, err, _env, function (err, __env, _cb, src) {
+        included.set(sourcename, src);
         var p = new Parser({ name: sourcename, buffer: src });
         nextTick(evalAsync, p.parse(), _env, function (err, _env, _cb, val) {
-          included.add(sourcename);
           nextTick(cb, null, _env, null, null);
         });
       }, sourcename);

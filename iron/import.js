@@ -45,14 +45,21 @@ export function importfn (env) {
 
 export function includefn (env) {
   let readsource = env.map.get('_readsource');
-  let included = new Set();
+  let included = new Map();
+  let src = null;
   return (err, _env, cb, sourcename) => {
-    if (included.has(sourcename)) nextTick (cb, null, _env, null, null);
+    if (included.has(sourcename)) { 
+      src = included.get(sourcename);
+      let p = new Parser({name: sourcename, buffer: src});
+      nextTick (evalAsync, p.parse(), _env, (err, _env, _cb, val) => {
+        nextTick (cb, null, _env, null, null);
+      });
+    }
     else {
       nextTick (readsource, err, _env, (err, __env, _cb, src) => {
+        included.set(sourcename, src);
         let p = new Parser({name: sourcename, buffer: src});
         nextTick (evalAsync, p.parse(), _env, (err, _env, _cb, val) => {
-          included.add(sourcename);
           nextTick (cb, null, _env, null, null);
         });
       }, sourcename);
