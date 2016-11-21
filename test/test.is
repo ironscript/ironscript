@@ -82,3 +82,9 @@ _begin
   (_def echoStream (_fn (stream) (_stream _echo (stream) ) ) )
   (_do (echoStream twiceNums))
 
+
+
+  (_include "./testInclude.is")
+  [does the include work ?]
+
+

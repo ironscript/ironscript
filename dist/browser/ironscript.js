@@ -4692,6 +4692,7 @@ var _def = new IronSymbol('_def');
 var _assign_unsafe = new IronSymbol('_assign!');
 var _fn = new IronSymbol('_fn');
 var _begin = new IronSymbol('_begin');
+var _sync = new IronSymbol('_sync');
 var _rho = new IronSymbol('_rho');
 
 var _self = new IronSymbol('_self');
@@ -4704,6 +4705,7 @@ var _set = new IronSymbol('_set');
 var _push = new IronSymbol('_push');
 var _stream = new IronSymbol('_stream');
 var _do = new IronSymbol('_do');
+var _include = new IronSymbol('_include');
 
 var defaultCallback = function defaultCallback(err, env) {
   if (err) {
@@ -4844,12 +4846,13 @@ function evalAsync(x, env) {
         if (sts instanceof IError) nextTick(cb, sts);else nextTick(cb, null, env, null, env);
       });
     })();
-  } else if (_begin.equal(x.car)) {
+  } else if (_begin.equal(x.car) || _sync.equal(x.car)) {
     (function () {
       var root = x.cdr;
       var cur = root;
 
-      var _env = new Env(null, null, env);
+      var _env = env;
+      if (_begin.equal(x.car)) _env = new Env(null, null, env);
 
       _env.sync();
       whilst(function () {
@@ -4903,6 +4906,14 @@ function evalAsync(x, env) {
       });
     });
     nextTick(cb, null, env, null, null);
+  } else if (_include.equal(x.car)) {
+    (function () {
+      var includefn = env.get(_include);
+      nextTick(evalAsync, x.cdr.car, env, function (err, _env, _, sourcename) {
+        //console.log('debug\n\n\n',includefn);
+        nextTick(includefn, err, env, cb, sourcename);
+      });
+    })();
   } else {
     nextTick(evalAsync, x.car, env, function (err, env, _, func) {
       //console.log (''+x.car +'\n\n'+inspect(func));

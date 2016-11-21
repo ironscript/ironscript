@@ -1,0 +1,153 @@
+<!doctype html>
+<html>
+  <head>
+    <title> Typing Speed </title>
+    <style type="text/css">
+      body {
+        padding: 5%;
+      }
+      .container {
+        position: relative;
+        display: flex;
+        justify-content: space-around;
+      }
+      .textbox {
+        width: 600px;
+        height: 200px;
+        border: 2px lemongreen solid;
+      }
+      ul.plot {
+        display: block;
+        width: 600px;
+        height: 100px;
+        border-bottom: 10px green solid;
+        padding: 0;
+      }
+      ul.plot > li {
+        display: inline-block;
+        margin: 0;
+        padding: 0;
+        width: 10px;
+        background: green;
+      }
+    </style>
+  </head>
+  <body>
+    <center> 
+      <h1> REALTIME TYPING SPEED TEST APP </h1>
+      <h4> Powered by Ironscript </h4>
+    </center>
+    <br>
+    <hr>
+    <br>
+
+    <textarea class="textbox" id="typing-area"></textarea>
+    <ul class="plot" id="plotting-area"></ul>
+
+    <script type="text/javascript" src="../dist/browser/ironscript.min.js"></script>
+    <script type="text/ironscript" id="ironscript-main">
+
+      _begin
+        (_def attach-event @{
+          let id = args[0], event = args[1];
+          document.getElementById(id).addEventListener(event, (e) => {
+            $yield(true);
+          });
+        }@ )
+        
+        (_def interval-stream @{
+          let sec = args[0];
+          setInterval(()=>{$yield(true);}, sec*1000);
+        }@ )
+
+        (_def H @{ $return({type:args[0], props:args[1], children:args[2]});}@ )
+
+        (_def UPDATE  @{
+          let par = args[0];
+          let node = args[1];
+          let old = args[2];
+          let index = args[3];
+          if (!index) index=0;
+          let createElement = (node) => {
+            if (typeof node === 'string') return document.createTextNode(node);
+            let $el = document.createElement(node.type);
+            Object.keys(node.props).forEach( (attr) => {
+              $el.setAttribute(attr, node.props[attr]);
+            });
+            node.children.map(createElement).forEach($el.appendChild.bind($el));
+            return $el;
+          }
+
+          let changed = (node1, node2) => {
+            return    typeof node1 !== typeof node2 
+                  ||  typeof node1 === 'string' && node1 !== node2
+                  ||  node1.type !== node2.type;
+          }
+          
+          let updateElement = (par, newnode, oldnode, index) => {
+            if (!oldnode) par.appendChild(createElement(newnode));
+            else if (!newnode) par.removeChild(par.childNodes[index]);
+            else if (changed(newnode, oldnode)) 
+              par.replaceChild(createElement(newnode), par.childNodes[index]);
+            else if (newnode.type) {
+              const newlen = newnode.children.length;
+              const oldlen = oldnode.children.length;
+              for (let i=0; i<newlen || i<oldlen; i++) 
+                updateElement (par.childNodes[index], newnode.children[i], oldnode.children[i], i);
+            }
+            else ;
+          }
+
+          $return(par.appendChild(createElement(node)));
+        }@ )
+
+        (_def O @{
+          let ret = {};
+          for (let arg of args) {
+            let attrName = arg[0];
+            let attrVal = arg[1];
+            ret[attrName] = attrVal;
+          }
+          $return(ret);
+        }@ )
+
+        (_def : @{ $return([args[0], args[1]]); }@ )
+
+        (_def A @{ 
+          let ret = [];
+          for (let arg of args) ret.push(arg);
+          $return (ret);
+        }@ )
+
+        (_def ARR @{ $return(new Array(args[0])); }@ )
+        (_def FILL @{ 
+          let arr = args[0];
+          let low = args[1];
+          let up = args[2];
+          let val = args[3];
+          for (let i=low; i<up; i++) arr[i] = val;
+          $return(arr);
+        }@ )
+
+        (_def MAP @{ 
+          //TODO 
+        }@ )
+
+
+
+        (_def plotArea (_fn (htarr) (H "ul" (O (: "class" "plot")) 
+          (FILL (ARR 60) (H "li" (O (: "style" (O (: "height" (* h 10) )) )) )) 
+        
+        ))
+        (_def click-stream (_stream attach-event "typing-area" "keyup") )
+        (_def unclick-stream (_stream attach-event "unclick-link" "click") )   
+        (_def update-message-clicked (_stream update-inner-html "msg" "clicked"))
+        (_def update-message-unclicked (_stream update-inner-html "msg" "unclicked"))
+     
+        (_do (_stream update-message-clicked (click-stream)))
+        (_do (_stream update-message-unclicked (unclick-stream)))
+
+
+    </script>
+  </body>
+</html>
