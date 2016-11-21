@@ -25,7 +25,7 @@
 import globalenv from './globalenv.js';
 import IronSymbol from './symbol.js';
 import {nextTick} from 'async-es';
-import importfn from './import.js';
+import {importfn, includefn} from './import.js';
 
 export default function () {
   let env = globalenv();
@@ -42,6 +42,7 @@ export default function () {
   }
   env.bind(new IronSymbol ('_readsource'), _readsource);
   env.bind(new IronSymbol ('_import'), importfn(env) );
+  env.bind(new IronSymbol ('_include'), includefn(env) );
 
   
   env.unsync();

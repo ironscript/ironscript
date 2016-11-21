@@ -26,7 +26,7 @@ import {nextTick} from 'async-es';
 import Parser from './parser.js';
 import evalAsync from './evalAsync.js';
 
-export default function (env) {
+export function importfn (env) {
   let readSource = env.map.get('_readsource');
   let imported = new Map();
   return (err, _env, cb, sourcename) => {
@@ -41,4 +41,23 @@ export default function (env) {
       } , sourcename);
     }
   }
-}    
+}
+
+export function includefn (env) {
+  let readsource = env.map.get('_readsource');
+  let included = new Set();
+  return (err, _env, cb, sourcename) => {
+    if (included.has(sourcename)) nextTick (cb, null, _env, null, null);
+    else {
+      nextTick (readsource, err, _env, (err, __env, _cb, src) => {
+        let p = new Parser({name: sourcename, buffer: src});
+        nextTick (evalAsync, p.parse(), _env, (err, _env, _cb, val) => {
+          included.add(sourcename);
+          nextTick (cb, null, _env, null, null);
+        });
+      }, sourcename);
+    }
+  }
+}
+
+

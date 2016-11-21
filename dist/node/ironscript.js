@@ -5499,7 +5499,7 @@ var globalenv = function () {
  *
  */
 
-var importfn = function (env) {
+function importfn(env) {
   var readSource = env.map.get('_readsource');
   var imported = new Map();
   return function (err, _env, cb, sourcename) {
@@ -5509,6 +5509,22 @@ var importfn = function (env) {
         nextTick(evalAsync, p.parse(), env, function (err, _env_, _cb, val) {
           imported.set(sourcename, _env_);
           nextTick(cb, null, _env, null, _env_);
+        });
+      }, sourcename);
+    }
+  };
+}
+
+function includefn(env) {
+  var readsource = env.map.get('_readsource');
+  var included = new Set();
+  return function (err, _env, cb, sourcename) {
+    if (included.has(sourcename)) nextTick(cb, null, _env, null, null);else {
+      nextTick(readsource, err, _env, function (err, __env, _cb, src) {
+        var p = new Parser({ name: sourcename, buffer: src });
+        nextTick(evalAsync, p.parse(), _env, function (err, _env, _cb, val) {
+          included.add(sourcename);
+          nextTick(cb, null, _env, null, null);
         });
       }, sourcename);
     }
@@ -5550,6 +5566,7 @@ var nodeEnv = function (basedir) {
   env.bind(new IronSymbol('_readfile'), _readFile);
   env.bind(new IronSymbol('_readsource'), _readFile);
   env.bind(new IronSymbol('_import'), importfn(env));
+  env.bind(new IronSymbol('_include'), includefn(env));
 
   env.unsync();
   return env;

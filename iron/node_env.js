@@ -26,7 +26,7 @@ import {readFile} from 'fs';
 import globalenv from './globalenv.js';
 import IronSymbol from './symbol.js';
 import {nextTick} from 'async-es';
-import importfn from './import.js';
+import {importfn, includefn} from './import.js';
 import {join} from 'path';
 
 export default function (basedir) {
@@ -41,6 +41,7 @@ export default function (basedir) {
   env.bind(new IronSymbol('_readfile'), _readFile);
   env.bind(new IronSymbol('_readsource'), _readFile);
   env.bind(new IronSymbol('_import'), importfn(env));
+  env.bind(new IronSymbol('_include'), includefn(env));
   
   env.unsync();
   return env;
