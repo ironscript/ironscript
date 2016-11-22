@@ -5,20 +5,10 @@
 ; PS Comments start with ';' and end with the newline.
 
 _begin
+  (_include "../stdlib/operators.is")
+
   (_def a 1) 
-  (_echo a)
-  
-  (_def + @{ $return (args[0]+args[1]); }@ )   ; implementation of the + op
-  (_def - @{ $return (args[0]-args[1]); }@ )
-  (_def * @{ $return (args[0]*args[1]); }@ )
-  (_def / @{ $return (args[0]/args[1]); }@ )
-  (_def == @{ $return (args[0]==args[1]); }@ )
-  (_def concat @{ 
-    let s = '';
-    for (let arg of args) s += arg;
-    $return (s);
-   }@ )
-  
+  (_echo a) 
   (_echo (+ a a))
 
   (_def twice (_fn (n) (+ n n)))

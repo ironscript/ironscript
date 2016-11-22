@@ -211,11 +211,15 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
   else if (_begin.equal(x.car) || _sync.equal(x.car)) {
     let root = x.cdr;
     let cur = root;
-
+    
     let _env = env;
     if (_begin.equal(x.car)) _env = new Env(null, null, env);
 
-    _env.sync();
+    let unsyncFlag = false;
+    if (!_env.syncLock) {
+      unsyncFlag = true;
+      _env.sync();
+    }
     whilst (
       () => { return x.cdr instanceof Cell; },
       (callback) => {
@@ -226,7 +230,7 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
       },
 
       (err, res) => {
-        _env.unsync();
+        if (unsyncFlag) _env.unsync();
         nextTick (cb, err, _env, null, res);
       }
     );

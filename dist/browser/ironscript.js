@@ -4854,7 +4854,11 @@ function evalAsync(x, env) {
       var _env = env;
       if (_begin.equal(x.car)) _env = new Env(null, null, env);
 
-      _env.sync();
+      var unsyncFlag = false;
+      if (!_env.syncLock) {
+        unsyncFlag = true;
+        _env.sync();
+      }
       whilst(function () {
         return x.cdr instanceof Cell;
       }, function (callback) {
@@ -4863,7 +4867,7 @@ function evalAsync(x, env) {
           nextTick(callback, err, argval);
         });
       }, function (err, res) {
-        _env.unsync();
+        if (unsyncFlag) _env.unsync();
         nextTick(cb, err, _env, null, res);
       });
     })();
