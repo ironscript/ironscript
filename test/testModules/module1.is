@@ -1,0 +1,3 @@
+_sync
+  (_include "./nestedTestModules/module2.is")
+  (_echo "MODULE-1 inside testModules directory")
