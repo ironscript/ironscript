@@ -32,9 +32,15 @@ import {join} from 'path';
 export default function (basedir) {
   let env = globalenv();
   env.sync();
+  env.bind(new IronSymbol('__base_dir__'), basedir);
   
   function _readFile (err, _env, _cb, filepath) {
-    readFile ( join('./', basedir, filepath), 'utf8', (err, str) => {
+    let basedir = _env.get(new IronSymbol('__base_dir__'));
+    
+    console.log('debug #basedir: '+basedir+'\t\t filename: '+filepath);
+    if (!basedir.startsWith('/')) basedir = join('./', basedir);
+
+    readFile ( join(basedir, filepath), 'utf8', (err, str) => {
       nextTick (_cb, err, _env, null, str);  
     });
   }

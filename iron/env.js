@@ -48,6 +48,16 @@ export default class Env {
     this.syncLock = false;
   }
 
+  syncAndBind (key, val) {
+    let flag = false;
+    if (!this.syncLock) {
+      this.sync();
+      flag = true;
+    }
+    this.bind (key, val);
+    if (flag) this.unsync();
+  }
+
   bind (key, val) {
     if (!this.syncLock) return false;
     while (key instanceof Cell) {

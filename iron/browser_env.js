@@ -29,12 +29,7 @@ import {importfn, includefn} from './import.js';
 
 export default function () {
   let env = globalenv();
-
   env.sync();
-  
-  
-  env.bind (new IronSymbol ('_doc_'), document );
-  env.bind (new IronSymbol ('_win_'), window );
   
   function _readsource (err, env, cb, id) {
     let source = document.getElementById(id).text;

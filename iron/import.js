@@ -25,33 +25,51 @@
 import {nextTick} from 'async-es';
 import Parser from './parser.js';
 import evalAsync from './evalAsync.js';
+import {dirname, join, basename} from 'path';
+import IronSymbol from './symbol.js';
+
+const _readsource = new IronSymbol('_readsource');
+const _basedir = new IronSymbol('__base_dir__');
 
 export function importfn (env) {
-  let readSource = env.map.get('_readsource');
   let imported = new Map();
   return (err, _env, cb, sourcename) => {
+    let readSource = _env.get(_readsource);
+    let basedir = _env.get(_basedir);
+   
+    //console.log('debug: '+sourcename);
+
     if (imported.has(sourcename)) nextTick (cb, null, _env, null, imported.get(sourcename));
     else {
+      if (!sourcename.endsWith('.is')) _env.syncAndBind (_basedir, __dirname);
+      else _env.syncAndBind(_basedir, join(basedir, dirname(sourcename)));
       nextTick (readSource, err, _env, (err, __env, _cb, src) => {
         let p = new Parser ({name:sourcename, buffer:src});
         nextTick (evalAsync, p.parse(), env, (err, _env_, _cb, val) => {
           imported.set (sourcename, _env_);
+          _env.syncAndBind(_basedir, basedir);
           nextTick (cb, null, _env, null, _env_);
         });
-      } , sourcename);
+      } , basename(sourcename));
     }
   }
 }
 
 export function includefn (env) {
-  let readsource = env.map.get('_readsource');
+  let readsource = env.get(_readsource);
   let included = new Map();
   let src = null;
   return (err, _env, cb, sourcename) => {
+    let basedir = _env.get(_basedir);
+    //console.log('debug: '+sourcename);
+    if (!sourcename.endsWith('.is')) _env.syncAndBind (_basedir, __dirname);
+    else _env.syncAndBind(_basedir, join(basedir, dirname(sourcename)));
+    
     if (included.has(sourcename)) { 
       src = included.get(sourcename);
       let p = new Parser({name: sourcename, buffer: src});
       nextTick (evalAsync, p.parse(), _env, (err, _env, _cb, val) => {
+        _env.syncAndBind(_basedir, basedir);
         nextTick (cb, null, _env, null, null);
       });
     }
@@ -60,9 +78,10 @@ export function includefn (env) {
         included.set(sourcename, src);
         let p = new Parser({name: sourcename, buffer: src});
         nextTick (evalAsync, p.parse(), _env, (err, _env, _cb, val) => {
+          _env.syncAndBind(_basedir, basedir);
           nextTick (cb, null, _env, null, null);
         });
-      }, sourcename);
+      }, basename(sourcename));
     }
   }
 }
