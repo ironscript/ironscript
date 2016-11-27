@@ -41,7 +41,7 @@ export function importfn (env) {
 
     if (imported.has(sourcename)) nextTick (cb, null, _env, null, imported.get(sourcename));
     else {
-      if (!sourcename.endsWith('.is')) _env.syncAndBind (_basedir, __dirname);
+      if (!sourcename.endsWith('.is')) _env.syncAndBind (_basedir, join(__dirname, 'include', dirname(sourcename)));
       else _env.syncAndBind(_basedir, join(basedir, dirname(sourcename)));
       nextTick (readSource, err, _env, (err, __env, _cb, src) => {
         let p = new Parser ({name:sourcename, buffer:src});
@@ -62,7 +62,7 @@ export function includefn (env) {
   return (err, _env, cb, sourcename) => {
     let basedir = _env.get(_basedir);
     //console.log('debug: '+sourcename);
-    if (!sourcename.endsWith('.is')) _env.syncAndBind (_basedir, __dirname);
+    if (!sourcename.endsWith('.is')) _env.syncAndBind (_basedir, join(__dirname, 'include', dirname(sourcename)));
     else _env.syncAndBind(_basedir, join(basedir, dirname(sourcename)));
     
     if (included.has(sourcename)) { 

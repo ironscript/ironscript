@@ -5,8 +5,9 @@
   "main": "./dist/node/ironscript.js",
   "scripts": {
     "test": "./dist/node/ironscript.js ./test/test.is",
-    "build": "npm run build-node && npm run build-browser",
-    "build-node": "rollup -c ./rollup.node.config.js && echo \"#!/usr/bin/env node \n \" | cat - ./dist/node/ironscript.js > ./dist/node/tmpfile && mv ./dist/node/tmpfile ./dist/node/ironscript.js && chmod +x ./dist/node/ironscript.js",
+    "build": "npm run clean && npm run build-node && npm run build-browser",
+    "build-node": "rollup -c ./rollup.node.config.js && echo \"#!/usr/bin/env node \n \" | cat - ./dist/node/ironscript.js > ./dist/node/tmpfile && mv ./dist/node/tmpfile ./dist/node/ironscript.js && chmod +x ./dist/node/ironscript.js && cp -R ./include/* ./dist/node/include",
+    "clean": "rm -rf ./dist/node/* && rm -rf ./dist/browser/* && mkdir ./dist/node/include",
     "build-browser": "rollup -c rollup.browser.config.js"
   },
   "bin": {

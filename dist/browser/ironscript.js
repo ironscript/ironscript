@@ -5533,7 +5533,7 @@ function importfn(env) {
     //console.log('debug: '+sourcename);
 
     if (imported.has(sourcename)) nextTick(cb, null, _env, null, imported.get(sourcename));else {
-      if (!sourcename.endsWith('.is')) _env.syncAndBind(_basedir, __dirname);else _env.syncAndBind(_basedir, path.join(basedir, path.dirname(sourcename)));
+      if (!sourcename.endsWith('.is')) _env.syncAndBind(_basedir, path.join(__dirname, 'include', path.dirname(sourcename)));else _env.syncAndBind(_basedir, path.join(basedir, path.dirname(sourcename)));
       nextTick(readSource, err, _env, function (err, __env, _cb, src) {
         var p = new Parser({ name: sourcename, buffer: src });
         nextTick(evalAsync, p.parse(), env, function (err, _env_, _cb, val) {
@@ -5553,7 +5553,7 @@ function includefn(env) {
   return function (err, _env, cb, sourcename) {
     var basedir = _env.get(_basedir);
     //console.log('debug: '+sourcename);
-    if (!sourcename.endsWith('.is')) _env.syncAndBind(_basedir, __dirname);else _env.syncAndBind(_basedir, path.join(basedir, path.dirname(sourcename)));
+    if (!sourcename.endsWith('.is')) _env.syncAndBind(_basedir, path.join(__dirname, 'include', path.dirname(sourcename)));else _env.syncAndBind(_basedir, path.join(basedir, path.dirname(sourcename)));
 
     if (included.has(sourcename)) {
       src = included.get(sourcename);

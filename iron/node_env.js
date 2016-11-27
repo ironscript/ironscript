@@ -36,9 +36,9 @@ export default function (basedir) {
   
   function _readFile (err, _env, _cb, filepath) {
     let basedir = _env.get(new IronSymbol('__base_dir__'));
-    
-    console.log('debug #basedir: '+basedir+'\t\t filename: '+filepath);
     if (!basedir.startsWith('/')) basedir = join('./', basedir);
+    
+    //console.log('debug #basedir: '+basedir+'\t\t filename: '+filepath);
 
     readFile ( join(basedir, filepath), 'utf8', (err, str) => {
       nextTick (_cb, err, _env, null, str);  
