@@ -51,6 +51,7 @@ const _push = new IronSymbol('_push');
 const _stream = new IronSymbol('_stream'); 
 const _do = new IronSymbol('_do'); 
 const _include = new IronSymbol('_include'); 
+const _import = new IronSymbol('_import'); 
 
 const defaultCallback = (err, env) => {
   if (err) {
@@ -273,10 +274,20 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 
   }
   else if (_include.equal(x.car)) {
-    let includefn = env.get(_include);
+    let includefn = env.get(x.car);
     nextTick (evalAsync, x.cdr.car, env, (err, _env, _, sourcename) => {
-      //console.log('debug\n\n\n',includefn);
       nextTick (includefn, err, env, cb, sourcename);
+    });
+  }
+  else if (_import.equal(x.car)) {
+    //console.log('\n\n\n',env,'\n\n\n');
+    let importfn = env.get(x.car);
+    nextTick (evalAsync, x.cdr.car, env, (err, _env, _, sourcename) => {
+      let names = null;
+      if (x.cdr.cdr) names = x.cdr.cdr.car;
+      nextTick (evalAsync, names, env, (err, _env, _, namesList) => {
+        nextTick (importfn, err, env, cb, sourcename, namesList);
+      });
     });
   }
   else {

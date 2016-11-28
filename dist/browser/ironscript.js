@@ -4717,6 +4717,7 @@ var _push = new IronSymbol('_push');
 var _stream = new IronSymbol('_stream');
 var _do = new IronSymbol('_do');
 var _include = new IronSymbol('_include');
+var _import = new IronSymbol('_import');
 
 var defaultCallback = function defaultCallback(err, env) {
   if (err) {
@@ -4923,10 +4924,21 @@ function evalAsync(x, env) {
     nextTick(cb, null, env, null, null);
   } else if (_include.equal(x.car)) {
     (function () {
-      var includefn = env.get(_include);
+      var includefn = env.get(x.car);
       nextTick(evalAsync, x.cdr.car, env, function (err, _env, _, sourcename) {
-        //console.log('debug\n\n\n',includefn);
         nextTick(includefn, err, env, cb, sourcename);
+      });
+    })();
+  } else if (_import.equal(x.car)) {
+    (function () {
+      //console.log('\n\n\n',env,'\n\n\n');
+      var importfn = env.get(x.car);
+      nextTick(evalAsync, x.cdr.car, env, function (err, _env, _, sourcename) {
+        var names = null;
+        if (x.cdr.cdr) names = x.cdr.cdr.car;
+        nextTick(evalAsync, names, env, function (err, _env, _, namesList) {
+          nextTick(importfn, err, env, cb, sourcename, namesList);
+        });
       });
     })();
   } else {
@@ -5526,20 +5538,51 @@ var _basedir = new IronSymbol('__base_dir__');
 
 function importfn(env) {
   var imported = new Map();
-  return function (err, _env, cb, sourcename) {
+  return function (err, _env, cb, sourcename, namesList) {
     var readSource = _env.get(_readsource);
     var basedir = _env.get(_basedir);
+    var _all = new IronSymbol('_all');
+    var sourceDir = null;
 
-    //console.log('debug: '+sourcename);
+    //console.log(_env);
 
-    if (imported.has(sourcename)) nextTick(cb, null, _env, null, imported.get(sourcename));else {
-      if (!sourcename.endsWith('.is')) _env.syncAndBind(_basedir, path.join(__dirname, 'include', path.dirname(sourcename)));else _env.syncAndBind(_basedir, path.join(basedir, path.dirname(sourcename)));
+    if (!sourcename.endsWith('.is')) sourceDir = path.join(__dirname, 'include', path.dirname(sourcename));else sourceDir = path.join(basedir, path.dirname(sourcename));
+    _env.syncAndBind(_basedir, sourceDir);
+    var filename = path.join(sourceDir, path.basename(sourcename));
+    //console.log('debug: '+filename);
+
+    //console.log(namesList);
+    if (imported.has(filename)) {
+      var importEnv = imported.get(filename);
+      if (namesList) {
+        //console.log('\t\t\t\tDebug (1): \t\t',namesList instanceof Cell);
+        if (namesList instanceof Cell) {
+          while (namesList instanceof Cell) {
+            //console.log('\t\t\t\tDebug: \t\t',importEnv.get(namesList.car));
+            _env.syncAndBind(namesList.car, importEnv.get(namesList.car));
+            namesList = namesList.cdr;
+          }
+        } else if (_all.equal(namesList)) _env.map = new Map([].concat(toConsumableArray(_env.map), toConsumableArray(importEnv.map)));
+      }
+      nextTick(cb, null, _env, null, importEnv);
+    } else {
       nextTick(readSource, err, _env, function (err, __env, _cb, src) {
         var p = new Parser({ name: sourcename, buffer: src });
-        nextTick(evalAsync, p.parse(), env, function (err, _env_, _cb, val) {
-          imported.set(sourcename, _env_);
+        nextTick(evalAsync, p.parse(), env, function (err, importEnv, _cb, val) {
+          imported.set(filename, importEnv);
           _env.syncAndBind(_basedir, basedir);
-          nextTick(cb, null, _env, null, _env_);
+          if (namesList) {
+            //console.log('\t\t\t\tDebug (2): \t\t',namesList instanceof Cell);
+            if (namesList instanceof Cell) {
+              while (namesList instanceof Cell) {
+
+                //console.log('\t\t\t\tDebug: \t\t',importEnv.get(namesList.car));
+                _env.syncAndBind(namesList.car, importEnv.get(namesList.car));
+                namesList = namesList.cdr;
+              }
+            } else if (_all.equal(namesList)) _env.map = new Map([].concat(toConsumableArray(_env.map), toConsumableArray(importEnv.map)));
+          }
+          nextTick(cb, null, _env, null, importEnv);
         });
       }, path.basename(sourcename));
     }
@@ -5552,11 +5595,15 @@ function includefn(env) {
   var src = null;
   return function (err, _env, cb, sourcename) {
     var basedir = _env.get(_basedir);
-    //console.log('debug: '+sourcename);
-    if (!sourcename.endsWith('.is')) _env.syncAndBind(_basedir, path.join(__dirname, 'include', path.dirname(sourcename)));else _env.syncAndBind(_basedir, path.join(basedir, path.dirname(sourcename)));
+    var sourceDir = null;
 
-    if (included.has(sourcename)) {
-      src = included.get(sourcename);
+    //console.log('debug: '+sourcename);
+    if (!sourcename.endsWith('.is')) sourceDir = path.join(__dirname, 'include', path.dirname(sourcename));else sourceDir = path.join(basedir, path.dirname(sourcename));
+    _env.syncAndBind(_basedir, sourceDir);
+    var filename = path.join(sourceDir, path.basename(sourcename));
+
+    if (included.has(filename)) {
+      src = included.get(filename);
       var p = new Parser({ name: sourcename, buffer: src });
       nextTick(evalAsync, p.parse(), _env, function (err, _env, _cb, val) {
         _env.syncAndBind(_basedir, basedir);
@@ -5564,7 +5611,7 @@ function includefn(env) {
       });
     } else {
       nextTick(readsource, err, _env, function (err, __env, _cb, src) {
-        included.set(sourcename, src);
+        included.set(filename, src);
         var p = new Parser({ name: sourcename, buffer: src });
         nextTick(evalAsync, p.parse(), _env, function (err, _env, _cb, val) {
           _env.syncAndBind(_basedir, basedir);

@@ -55,8 +55,8 @@ _begin
   (myFunc 5)
 
 
-  (_def mod (_import "./test1.is") )
-  (_echo (_get mod name))
+  (_import "./test1.is" _all)
+  (_echo name)
 
   (_echo '( (IronScript is) quite ready))
 
@@ -70,7 +70,6 @@ _begin
   (_def twiceNums (_stream * 2 (natstream)))
   (_def echoStream (_fn (stream) (_stream _echo (stream) ) ) )
   (_do (echoStream twiceNums))
-
 
 
   (_include "./testInclude.is")
