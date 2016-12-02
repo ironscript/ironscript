@@ -77,6 +77,6 @@ export function fxAsync (f) { // f = ($return, $throw, $catch, $env, ...args) =>
       nextTick (_cb, null, _env, null, retval);
     }
 
-    nextTick (f, $return, $throw, $catch, $yield, _env, ...args);
+    nextTick (f, $return, $throw, $catch, $yield, _env.par, ...args);
   }
 }

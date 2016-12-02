@@ -25,26 +25,31 @@
 import {nextTick} from 'async-es';
 import Parser from './parser.js';
 import evalAsync from './evalAsync.js';
-import {dirname, join, basename} from 'path';
 import IronSymbol from './symbol.js';
 import Cell from './cell.js';
 
 const _readsource = new IronSymbol('_readsource');
-const _basedir = new IronSymbol('__base_dir__');
 
 export function importfn (env) {
   let imported = new Map();
   return (err, _env, cb, sourcename, namesList) => {
     let readSource = _env.get(_readsource);
-    let basedir = _env.get(_basedir);
-    let _all = new IronSymbol('_all');
+
+    let basedir = _env.getc('__base_dir__');
+    let __include_dir__ = _env.getc('__include_dir__');
+    let __path_utils__ = _env.getc('__path_utils__');
+
+    let join = __path_utils__.join;
+    let dirname = __path_utils__.dirname;
+    let basename = __path_utils__.basename;
+    
     let sourceDir = null;
+    let _all = new IronSymbol('_all');
 
     //console.log(_env);
     
-    if (!sourcename.endsWith('.is')) sourceDir = join(__dirname, 'include', dirname(sourcename));
+    if (!sourcename.endsWith('.is')) sourceDir = join(__include_dir__, dirname(sourcename));
     else sourceDir = join(basedir, dirname(sourcename));
-    _env.syncAndBind(_basedir, sourceDir);
     let filename = join(sourceDir, basename(sourcename));
     //console.log('debug: '+filename);
 
@@ -67,9 +72,11 @@ export function importfn (env) {
     else {
       nextTick (readSource, err, _env, (err, __env, _cb, src) => {
         let p = new Parser ({name:sourcename, buffer:src});
+        _env.defc('__base_dir__', sourceDir);
+
         nextTick (evalAsync, p.parse(), env, (err, importEnv, _cb, val) => {
           imported.set (filename, importEnv);
-          _env.syncAndBind(_basedir, basedir);
+          _env.defc('__base_dir__', basedir);
           if (namesList) {
             //console.log('\t\t\t\tDebug (2): \t\t',namesList instanceof Cell);
             if (namesList instanceof Cell) {
@@ -94,29 +101,39 @@ export function includefn (env) {
   let included = new Map();
   let src = null;
   return (err, _env, cb, sourcename) => {
-    let basedir = _env.get(_basedir);
+    let basedir = _env.getc('__base_dir__');
+    let __include_dir__ = _env.getc('__include_dir__');
+    let __path_utils__ = _env.getc('__path_utils__');
+    
+    let join = __path_utils__.join;
+    let dirname = __path_utils__.dirname;
+    let basename = __path_utils__.basename;
+
     let sourceDir = null;
     
-    //console.log('debug: '+sourcename);
-    if (!sourcename.endsWith('.is')) sourceDir = join(__dirname, 'include', dirname(sourcename));
+    //console.log('__debug__: '+dirname(sourcename));
+    if (!sourcename.endsWith('.is')) sourceDir = join(__include_dir__, dirname(sourcename));
     else sourceDir = join(basedir, dirname(sourcename));
-    _env.syncAndBind(_basedir, sourceDir);
+    //console.log('__debug__: ', sourceDir);
+    _env.defc('__base_dir__', sourceDir);
     let filename = join(sourceDir, basename(sourcename));
     
+    //console.log('debug: '+filename);
     if (included.has(filename)) { 
       src = included.get(filename);
       let p = new Parser({name: sourcename, buffer: src});
       nextTick (evalAsync, p.parse(), _env, (err, _env, _cb, val) => {
-        _env.syncAndBind(_basedir, basedir);
+        _env.defc('__base_dir__', basedir);
         nextTick (cb, null, _env, null, null);
       });
     }
     else {
       nextTick (readsource, err, _env, (err, __env, _cb, src) => {
         included.set(filename, src);
+        //console.log(filename, '\n\n', src);
         let p = new Parser({name: sourcename, buffer: src});
         nextTick (evalAsync, p.parse(), _env, (err, _env, _cb, val) => {
-          _env.syncAndBind(_basedir, basedir);
+          _env.defc('__base_dir__', basedir);
           nextTick (cb, null, _env, null, null);
         });
       }, basename(sourcename));

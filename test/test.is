@@ -66,6 +66,8 @@ _begin
     setInterval (() => { $yield(i++); }, 1000);
    }@
   )
+
+  (@{ $scope.setc('testKey', 'Testing const interopTable'); }@)
   
   (_def twiceNums (_stream * 2 (natstream)))
   (_def echoStream (_fn (stream) (_stream _echo (stream) ) ) )
@@ -74,5 +76,7 @@ _begin
 
   (_include "./testInclude.is")
   [does the include work ?]
+
+  (@{ console.log($scope.getc('testKey')); }@)
 
 

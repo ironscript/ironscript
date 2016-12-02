@@ -1,4 +1,4 @@
-(function (path) {
+(function () {
 'use strict';
 
 var asyncGenerator = function () {
@@ -672,6 +672,7 @@ var Env = function () {
     this.bind(param, arg);
     this.syncLock = false;
     this.rho = new Rho(this);
+    this.constTable = new Map();
   }
 
   createClass(Env, [{
@@ -731,6 +732,24 @@ var Env = function () {
 
       if (ret instanceof Function) return ret;else if (ret instanceof Object) return Object.assign({}, ret);
       return ret;
+    }
+  }, {
+    key: 'defc',
+    value: function defc(key, val) {
+      this.constTable.set(key, val);
+      return val;
+    }
+  }, {
+    key: 'setc',
+    value: function setc(key, val) {
+      if (this.constTable.has(key)) return this.constTable.get(key);
+      this.constTable.set(key, val);
+      return val;
+    }
+  }, {
+    key: 'getc',
+    value: function getc(key) {
+      if (this.constTable.has(key)) return this.constTable.get(key);else if (this.par !== null) return this.par.getc(key);else return null;
     }
   }]);
   return Env;
@@ -5092,7 +5111,7 @@ function fxAsync(f) {
       nextTick(_cb, null, _env, null, retval);
     };
 
-    nextTick.apply(undefined, [f, $return, $throw, $catch, $yield, _env].concat(args));
+    nextTick.apply(undefined, [f, $return, $throw, $catch, $yield, _env.par].concat(args));
   };
 }
 
@@ -5269,7 +5288,7 @@ var Lexer = function () {
           this.source.next();
           var fnStr = this.readSpecial('}');
           try {
-            return fxAsync(new Function("$return", "$throw", "$catch", "$yield", "$env", "...args", fnStr)); // jshint ignore: line
+            return fxAsync(new Function("$return", "$throw", "$catch", "$yield", "$scope", "...args", fnStr + ';$return(null);')); // jshint ignore: line
           } catch (e) {
             console.error(fnStr);
             throw e;
@@ -5430,6 +5449,14 @@ function _eval(err, env, cb, src, name) {
   });
 }
 
+function _eval_unsafe(err, env, cb, src, name) {
+  if (!name) name = 'unnamed';
+  var p = new Parser({ name: name, buffer: src });
+  nextTick(evalAsync, p.parse(), env, function (err, _env, _cb, val) {
+    if (cb) nextTick(cb, err, env, null, _env);
+  });
+}
+
 function interpretSync(src, name, env) {
   if (!name) name = 'unnamed';
   var p = new Parser({ name: name, buffer: src });
@@ -5495,6 +5522,7 @@ var globalenv = function () {
   _globalenv.sync();
   _globalenv.bind(new IronSymbol('_fx'), fx);
   _globalenv.bind(new IronSymbol('_eval'), _eval);
+  _globalenv.bind(new IronSymbol('_eval!'), _eval_unsafe);
   _globalenv.bind(new IronSymbol('_echo'), fxSync(echo));
 
   function _new(cls) {
@@ -5534,21 +5562,27 @@ var globalenv = function () {
  */
 
 var _readsource = new IronSymbol('_readsource');
-var _basedir = new IronSymbol('__base_dir__');
 
 function importfn(env) {
   var imported = new Map();
   return function (err, _env, cb, sourcename, namesList) {
     var readSource = _env.get(_readsource);
-    var basedir = _env.get(_basedir);
-    var _all = new IronSymbol('_all');
+
+    var basedir = _env.getc('__base_dir__');
+    var __include_dir__ = _env.getc('__include_dir__');
+    var __path_utils__ = _env.getc('__path_utils__');
+
+    var join = __path_utils__.join;
+    var dirname = __path_utils__.dirname;
+    var basename = __path_utils__.basename;
+
     var sourceDir = null;
+    var _all = new IronSymbol('_all');
 
     //console.log(_env);
 
-    if (!sourcename.endsWith('.is')) sourceDir = path.join(__dirname, 'include', path.dirname(sourcename));else sourceDir = path.join(basedir, path.dirname(sourcename));
-    _env.syncAndBind(_basedir, sourceDir);
-    var filename = path.join(sourceDir, path.basename(sourcename));
+    if (!sourcename.endsWith('.is')) sourceDir = join(__include_dir__, dirname(sourcename));else sourceDir = join(basedir, dirname(sourcename));
+    var filename = join(sourceDir, basename(sourcename));
     //console.log('debug: '+filename);
 
     //console.log(namesList);
@@ -5568,9 +5602,11 @@ function importfn(env) {
     } else {
       nextTick(readSource, err, _env, function (err, __env, _cb, src) {
         var p = new Parser({ name: sourcename, buffer: src });
+        _env.defc('__base_dir__', sourceDir);
+
         nextTick(evalAsync, p.parse(), env, function (err, importEnv, _cb, val) {
           imported.set(filename, importEnv);
-          _env.syncAndBind(_basedir, basedir);
+          _env.defc('__base_dir__', basedir);
           if (namesList) {
             //console.log('\t\t\t\tDebug (2): \t\t',namesList instanceof Cell);
             if (namesList instanceof Cell) {
@@ -5584,7 +5620,7 @@ function importfn(env) {
           }
           nextTick(cb, null, _env, null, importEnv);
         });
-      }, path.basename(sourcename));
+      }, basename(sourcename));
     }
   };
 }
@@ -5594,30 +5630,40 @@ function includefn(env) {
   var included = new Map();
   var src = null;
   return function (err, _env, cb, sourcename) {
-    var basedir = _env.get(_basedir);
+    var basedir = _env.getc('__base_dir__');
+    var __include_dir__ = _env.getc('__include_dir__');
+    var __path_utils__ = _env.getc('__path_utils__');
+
+    var join = __path_utils__.join;
+    var dirname = __path_utils__.dirname;
+    var basename = __path_utils__.basename;
+
     var sourceDir = null;
 
-    //console.log('debug: '+sourcename);
-    if (!sourcename.endsWith('.is')) sourceDir = path.join(__dirname, 'include', path.dirname(sourcename));else sourceDir = path.join(basedir, path.dirname(sourcename));
-    _env.syncAndBind(_basedir, sourceDir);
-    var filename = path.join(sourceDir, path.basename(sourcename));
+    //console.log('__debug__: '+dirname(sourcename));
+    if (!sourcename.endsWith('.is')) sourceDir = join(__include_dir__, dirname(sourcename));else sourceDir = join(basedir, dirname(sourcename));
+    //console.log('__debug__: ', sourceDir);
+    _env.defc('__base_dir__', sourceDir);
+    var filename = join(sourceDir, basename(sourcename));
 
+    //console.log('debug: '+filename);
     if (included.has(filename)) {
       src = included.get(filename);
       var p = new Parser({ name: sourcename, buffer: src });
       nextTick(evalAsync, p.parse(), _env, function (err, _env, _cb, val) {
-        _env.syncAndBind(_basedir, basedir);
+        _env.defc('__base_dir__', basedir);
         nextTick(cb, null, _env, null, null);
       });
     } else {
       nextTick(readsource, err, _env, function (err, __env, _cb, src) {
         included.set(filename, src);
+        //console.log(filename, '\n\n', src);
         var p = new Parser({ name: sourcename, buffer: src });
         nextTick(evalAsync, p.parse(), _env, function (err, _env, _cb, val) {
-          _env.syncAndBind(_basedir, basedir);
+          _env.defc('__base_dir__', basedir);
           nextTick(cb, null, _env, null, null);
         });
-      }, path.basename(sourcename));
+      }, basename(sourcename));
     }
   };
 }
@@ -5690,4 +5736,4 @@ document.addEventListener('DOMContentLoaded', function () {
   interpretSync(main, 'ironscript-main', browserenv());
 }, false);
 
-}(path));
+}());

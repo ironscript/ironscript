@@ -38,6 +38,7 @@ export default class Env {
     this.bind (param, arg);
     this.syncLock = false;
     this.rho = new Rho(this);
+    this.constTable = new Map();
   }
 
   sync () {
@@ -94,5 +95,23 @@ export default class Env {
     else if (ret instanceof Object) return Object.assign({}, ret);
     return ret;
   }
+
+  defc (key, val) {
+    this.constTable.set(key, val);
+    return val;
+  }
+
+  setc (key, val) {
+    if (this.constTable.has(key)) return this.constTable.get(key);
+    this.constTable.set(key, val);
+    return val;
+  }
+
+  getc (key) {
+    if (this.constTable.has(key)) return this.constTable.get(key);
+    else if (this.par !== null) return this.par.getc(key);
+    else return null;
+  }
+
 }
 
