@@ -22,16 +22,40 @@
  */
 
 
-import nodeEnv from './iron/node_env.js';
-import {interpretSync} from './iron/interpret.js';
-import {nextTick} from 'async-es';
 import {readFile} from 'fs';
-import {dirname} from 'path';
+import {nextTick} from 'async-es';
+import {join, dirname, basename, extname} from 'path';
+import {globalenv, IronSymbol, importfn, includefn} from '../iron.js';
 
-const filename = process.argv[2];
-const basedir = dirname(filename);
+export default function (basedir) {
+  let env = globalenv();
 
-readFile(filename, 'utf8', function (err, str) {
-  if (err) throw err;
-  interpretSync (str, filename, nodeEnv(basedir));
-});
+  env.defc('__base_dir__',      basedir );
+  env.defc('__readfile__',      readFile );
+  env.defc('__include_dir__',   join(__dirname, 'include') );
+  env.defc('__path_utils__', {
+    join: join, 
+    dirname: dirname, 
+    basename: basename, 
+    extname: extname
+  });
+
+  function _readFile (err, _env, _cb, filepath) {
+    let basedir = _env.getc('__base_dir__');
+    //console.log(basedir);
+    if (!basedir.startsWith('/')) basedir = join('./', basedir);
+    readFile ( join(basedir, filepath), 'utf8', (err, str) => {
+      nextTick (_cb, err, _env, null, str);  
+    });
+  }
+
+  env.sync();
+
+  env.bind(new IronSymbol('_readfile'), _readFile);
+  env.bind(new IronSymbol('_readsource'), _readFile);
+  env.bind(new IronSymbol('_import'), importfn(env));
+  env.bind(new IronSymbol('_include'), includefn(env));
+  
+  env.unsync();
+  return env;
+}
