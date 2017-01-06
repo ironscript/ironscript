@@ -25,6 +25,7 @@ export default class Runtime {
 
   run (filepath) {
     let src = this.readFile(filepath);
+    console.log(src);
     interpretSync(src, filepath, browserenv(this.context(dirname(filepath))));
   }
 

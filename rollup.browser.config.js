@@ -6,6 +6,7 @@ export default {
   entry: './browser-runtime/ironscript-browser.js',
   dest: './dist/browser/ironscript.js',
   format: 'iife',
+  moduleName: 'ironscript',
   plugins: [
     resolve({
       jsnext: true,

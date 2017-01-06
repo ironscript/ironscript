@@ -1,1 +1,1 @@
-module.exports.message = "TESTING JS MODULE IMPORT";
+var vdom = { message: "TESTING JS MODULE IMPORT"};

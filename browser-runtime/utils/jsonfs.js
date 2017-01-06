@@ -10,7 +10,7 @@ class Inode {
   }
   
   dumps () {
-    return JSON.stringify(this.dump(), null, 2);
+    return JSON.stringify(this.dump(), null);
   }
 }
 

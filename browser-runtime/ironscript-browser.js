@@ -22,6 +22,7 @@
  */
 
 
+/*
 import browserenv from './browser_env.js';
 import {interpretSync} from '../iron.js';
 
@@ -29,3 +30,10 @@ document.addEventListener('DOMContentLoaded', () => {
   let main = document.getElementById('ironscript-main').text;
   interpretSync(main, 'ironscript-main', browserenv());
 }, false);
+*/
+
+import Package from './package.js';
+export function runPackage (pkgstr) {
+  let p = new Package(pkgstr);
+  return null;
+}

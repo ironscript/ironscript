@@ -43,7 +43,7 @@ class Bundler {
     let tmp = this.dest;
 
     if (!x.endsWith('.is')) {
-      srcdir = join(__dirname, '../include',dirname(x));
+      srcdir = join(__dirname, '../node/include',dirname(x));
       dest = join('/include', dirname(x));
       this.$.mkdir (dest);
       this.$.cd (dest);
@@ -84,9 +84,14 @@ class Bundler {
 export default function bundle () {
   let config = JSON.parse(readFileSync('./iron.config.json', 'utf8'));
   let bundleStr = Bundler.bundle (config.main);
-  return 'IronscriptPackage("'+
-    JSON.stringify({ config: config, rootfs: bundleStr }, null, 2) +
-    '");';
+  
+  let p = {config: config, rootfs: bundleStr};
+  let ps = JSON.stringify(p, null);
+  return "ironscript.runPackage("+JSON.stringify(ps)+");";
+  
+  return "ironscript.runPackage('"+
+    JSON.stringify({ config: config, rootfs: bundleStr.replace(/\"/g, '\\"') }, null).replace(/\'/g,"\\'") +
+    "');";
 }
 
 /*

@@ -1,5 +1,649 @@
-(function () {
+(function (exports) {
 'use strict';
+
+var asyncGenerator = function () {
+  function AwaitValue(value) {
+    this.value = value;
+  }
+
+  function AsyncGenerator(gen) {
+    var front, back;
+
+    function send(key, arg) {
+      return new Promise(function (resolve, reject) {
+        var request = {
+          key: key,
+          arg: arg,
+          resolve: resolve,
+          reject: reject,
+          next: null
+        };
+
+        if (back) {
+          back = back.next = request;
+        } else {
+          front = back = request;
+          resume(key, arg);
+        }
+      });
+    }
+
+    function resume(key, arg) {
+      try {
+        var result = gen[key](arg);
+        var value = result.value;
+
+        if (value instanceof AwaitValue) {
+          Promise.resolve(value.value).then(function (arg) {
+            resume("next", arg);
+          }, function (arg) {
+            resume("throw", arg);
+          });
+        } else {
+          settle(result.done ? "return" : "normal", result.value);
+        }
+      } catch (err) {
+        settle("throw", err);
+      }
+    }
+
+    function settle(type, value) {
+      switch (type) {
+        case "return":
+          front.resolve({
+            value: value,
+            done: true
+          });
+          break;
+
+        case "throw":
+          front.reject(value);
+          break;
+
+        default:
+          front.resolve({
+            value: value,
+            done: false
+          });
+          break;
+      }
+
+      front = front.next;
+
+      if (front) {
+        resume(front.key, front.arg);
+      } else {
+        back = null;
+      }
+    }
+
+    this._invoke = send;
+
+    if (typeof gen.return !== "function") {
+      this.return = undefined;
+    }
+  }
+
+  if (typeof Symbol === "function" && Symbol.asyncIterator) {
+    AsyncGenerator.prototype[Symbol.asyncIterator] = function () {
+      return this;
+    };
+  }
+
+  AsyncGenerator.prototype.next = function (arg) {
+    return this._invoke("next", arg);
+  };
+
+  AsyncGenerator.prototype.throw = function (arg) {
+    return this._invoke("throw", arg);
+  };
+
+  AsyncGenerator.prototype.return = function (arg) {
+    return this._invoke("return", arg);
+  };
+
+  return {
+    wrap: function (fn) {
+      return function () {
+        return new AsyncGenerator(fn.apply(this, arguments));
+      };
+    },
+    await: function (value) {
+      return new AwaitValue(value);
+    }
+  };
+}();
+
+
+
+
+
+var classCallCheck = function (instance, Constructor) {
+  if (!(instance instanceof Constructor)) {
+    throw new TypeError("Cannot call a class as a function");
+  }
+};
+
+var createClass = function () {
+  function defineProperties(target, props) {
+    for (var i = 0; i < props.length; i++) {
+      var descriptor = props[i];
+      descriptor.enumerable = descriptor.enumerable || false;
+      descriptor.configurable = true;
+      if ("value" in descriptor) descriptor.writable = true;
+      Object.defineProperty(target, descriptor.key, descriptor);
+    }
+  }
+
+  return function (Constructor, protoProps, staticProps) {
+    if (protoProps) defineProperties(Constructor.prototype, protoProps);
+    if (staticProps) defineProperties(Constructor, staticProps);
+    return Constructor;
+  };
+}();
+
+
+
+
+
+
+
+var get$1 = function get$1(object, property, receiver) {
+  if (object === null) object = Function.prototype;
+  var desc = Object.getOwnPropertyDescriptor(object, property);
+
+  if (desc === undefined) {
+    var parent = Object.getPrototypeOf(object);
+
+    if (parent === null) {
+      return undefined;
+    } else {
+      return get$1(parent, property, receiver);
+    }
+  } else if ("value" in desc) {
+    return desc.value;
+  } else {
+    var getter = desc.get;
+
+    if (getter === undefined) {
+      return undefined;
+    }
+
+    return getter.call(receiver);
+  }
+};
+
+var inherits = function (subClass, superClass) {
+  if (typeof superClass !== "function" && superClass !== null) {
+    throw new TypeError("Super expression must either be null or a function, not " + typeof superClass);
+  }
+
+  subClass.prototype = Object.create(superClass && superClass.prototype, {
+    constructor: {
+      value: subClass,
+      enumerable: false,
+      writable: true,
+      configurable: true
+    }
+  });
+  if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass;
+};
+
+
+
+
+
+
+
+
+
+
+
+var possibleConstructorReturn = function (self, call) {
+  if (!self) {
+    throw new ReferenceError("this hasn't been initialised - super() hasn't been called");
+  }
+
+  return call && (typeof call === "object" || typeof call === "function") ? call : self;
+};
+
+
+
+var set = function set(object, property, value, receiver) {
+  var desc = Object.getOwnPropertyDescriptor(object, property);
+
+  if (desc === undefined) {
+    var parent = Object.getPrototypeOf(object);
+
+    if (parent !== null) {
+      set(parent, property, value, receiver);
+    }
+  } else if ("value" in desc && desc.writable) {
+    desc.value = value;
+  } else {
+    var setter = desc.set;
+
+    if (setter !== undefined) {
+      setter.call(receiver, value);
+    }
+  }
+
+  return value;
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var toConsumableArray = function (arr) {
+  if (Array.isArray(arr)) {
+    for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) arr2[i] = arr[i];
+
+    return arr2;
+  } else {
+    return Array.from(arr);
+  }
+};
+
+var Path = function () {
+  function Path(pathstr) {
+    classCallCheck(this, Path);
+
+    if (!pathstr) this.arr = [];else {
+      this.arr = pathstr.split('/');
+      if (pathstr.startsWith('/')) this.arr[0] = '/';
+      if (pathstr.endsWith('/')) this.arr.pop();
+    }
+    this.normalize();
+  }
+
+  createClass(Path, [{
+    key: 'append',
+    value: function append(p2) {
+      var _arr;
+
+      (_arr = this.arr).push.apply(_arr, toConsumableArray(p2.arr));
+    }
+  }, {
+    key: 'normalize',
+    value: function normalize() {
+      var x = [];
+      var _iteratorNormalCompletion = true;
+      var _didIteratorError = false;
+      var _iteratorError = undefined;
+
+      try {
+        for (var _iterator = this.arr[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+          var name = _step.value;
+
+          if (name === '.') continue;else if (name === '/') x = ['/'];else if (name === '..') x.pop();else x.push(name);
+        }
+      } catch (err) {
+        _didIteratorError = true;
+        _iteratorError = err;
+      } finally {
+        try {
+          if (!_iteratorNormalCompletion && _iterator.return) {
+            _iterator.return();
+          }
+        } finally {
+          if (_didIteratorError) {
+            throw _iteratorError;
+          }
+        }
+      }
+
+      this.arr = x;
+    }
+  }, {
+    key: 'level',
+    get: function get() {
+      return this.arr.length;
+    }
+  }, {
+    key: 'path',
+    get: function get() {
+      if (this.arr[0] === '/') {
+        this.arr[0] = '';
+        var r = this.arr.join('/');
+        this.arr[0] = '/';
+        return r;
+      }
+      return this.arr.join('/');
+    }
+  }, {
+    key: 'dirname',
+    get: function get() {
+      var arr = this.arr.slice(0, this.level - 1);
+      if (arr[0] === '/') {
+        arr[0] = '';
+        var r = arr.join('/');
+        arr[0] = '/';
+        return r;
+      }
+      return arr.join('/');
+    }
+  }, {
+    key: 'basename',
+    get: function get() {
+      return this.arr[this.level - 1];
+    }
+  }, {
+    key: 'extname',
+    get: function get() {
+      var x = this.basename.split('.');
+      if (x.length === 1) return '';
+      return x[x.length - 1];
+    }
+  }]);
+  return Path;
+}();
+
+function join() {
+  var p = new Path();
+
+  for (var _len = arguments.length, paths = Array(_len), _key = 0; _key < _len; _key++) {
+    paths[_key] = arguments[_key];
+  }
+
+  var _iteratorNormalCompletion2 = true;
+  var _didIteratorError2 = false;
+  var _iteratorError2 = undefined;
+
+  try {
+    for (var _iterator2 = paths[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+      var path = _step2.value;
+
+      p.append(new Path(path));
+    }
+  } catch (err) {
+    _didIteratorError2 = true;
+    _iteratorError2 = err;
+  } finally {
+    try {
+      if (!_iteratorNormalCompletion2 && _iterator2.return) {
+        _iterator2.return();
+      }
+    } finally {
+      if (_didIteratorError2) {
+        throw _iteratorError2;
+      }
+    }
+  }
+
+  p.normalize();
+  return p.path;
+}
+
+function dirname(path) {
+  return new Path(path).dirname;
+}
+
+function basename(path) {
+  return new Path(path).basename;
+}
+
+function extname(path) {
+  return new Path(path).extname;
+}
+
+var Inode = function () {
+  function Inode(name, content) {
+    classCallCheck(this, Inode);
+
+    this.name = name;
+    this.content = content;
+  }
+
+  createClass(Inode, [{
+    key: 'dumps',
+    value: function dumps() {
+      return JSON.stringify(this.dump(), null);
+    }
+  }, {
+    key: 'type',
+    get: function get() {
+      if (this.content instanceof Map) return 'directory';else return 'file';
+    }
+  }]);
+  return Inode;
+}();
+
+var File = function (_Inode) {
+  inherits(File, _Inode);
+
+  function File(name) {
+    classCallCheck(this, File);
+    return possibleConstructorReturn(this, (File.__proto__ || Object.getPrototypeOf(File)).call(this, name, ''));
+  }
+
+  createClass(File, [{
+    key: 'read',
+    value: function read() {
+      return this.content;
+    }
+  }, {
+    key: 'write',
+    value: function write(str) {
+      str = str.toString();
+      this.content = str;
+    }
+  }, {
+    key: 'dump',
+    value: function dump() {
+      var obj = Object.create(null);
+      obj.type = this.type;
+      obj.name = this.name;
+      obj.content = this.content;
+      return obj;
+    }
+  }]);
+  return File;
+}(Inode);
+
+var Directory = function (_Inode2) {
+  inherits(Directory, _Inode2);
+
+  function Directory(name, par) {
+    classCallCheck(this, Directory);
+
+    var _this2 = possibleConstructorReturn(this, (Directory.__proto__ || Object.getPrototypeOf(Directory)).call(this, name, new Map()));
+
+    _this2.par = par;
+    _this2.content.set('.', _this2);
+    _this2.content.set('..', _this2.par);
+    _this2.content.set('/', _this2.root);
+    return _this2;
+  }
+
+  createClass(Directory, [{
+    key: 'mkdir',
+    value: function mkdir(name) {
+      if (!this.content.has(name)) this.content.set(name, new Directory(name, this));
+      return this.content.get(name);
+    }
+  }, {
+    key: 'touch',
+    value: function touch(name) {
+      if (!this.content.has(name)) this.content.set(name, new File(name));
+      return this.content.get(name);
+    }
+  }, {
+    key: 'rm',
+    value: function rm(name) {
+      if (this.content.has(name)) this.content.delete(name);
+    }
+  }, {
+    key: 'ls',
+    value: function ls() {
+      var x = [];
+      var _iteratorNormalCompletion = true;
+      var _didIteratorError = false;
+      var _iteratorError = undefined;
+
+      try {
+        for (var _iterator = this.content.keys()[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+          var y = _step.value;
+          x.push(y);
+        }
+      } catch (err) {
+        _didIteratorError = true;
+        _iteratorError = err;
+      } finally {
+        try {
+          if (!_iteratorNormalCompletion && _iterator.return) {
+            _iterator.return();
+          }
+        } finally {
+          if (_didIteratorError) {
+            throw _iteratorError;
+          }
+        }
+      }
+
+      return x;
+    }
+  }, {
+    key: 'get',
+    value: function get(name) {
+      if (this.content.has(name)) return this.content.get(name);
+      return false;
+    }
+  }, {
+    key: 'mount',
+    value: function mount(name, fs) {
+      if (fs instanceof Directory) {
+        var mounted = new Directory(name, this);
+        mounted.content = fs.content;
+        mounted.content.set('..', this);
+        mounted.content.set('/', this.root);
+
+        this.content.set(name, mounted);
+      } else {
+        this.content.set(name, fs);
+      }
+      return this.content.get(name);
+    }
+  }, {
+    key: 'dump',
+    value: function dump() {
+      var obj = Object.create(null);
+      obj.type = this.type;
+      obj.name = this.name;
+      obj.content = [];
+      var _iteratorNormalCompletion2 = true;
+      var _didIteratorError2 = false;
+      var _iteratorError2 = undefined;
+
+      try {
+        for (var _iterator2 = this.content.keys()[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+          var node = _step2.value;
+
+          if (node === '.' || node === '..' || node === '/') continue;
+          obj.content.push(this.content.get(node).dump());
+        }
+      } catch (err) {
+        _didIteratorError2 = true;
+        _iteratorError2 = err;
+      } finally {
+        try {
+          if (!_iteratorNormalCompletion2 && _iterator2.return) {
+            _iterator2.return();
+          }
+        } finally {
+          if (_didIteratorError2) {
+            throw _iteratorError2;
+          }
+        }
+      }
+
+      return obj;
+    }
+  }, {
+    key: 'load',
+    value: function load(contentArr) {
+      var _iteratorNormalCompletion3 = true;
+      var _didIteratorError3 = false;
+      var _iteratorError3 = undefined;
+
+      try {
+        for (var _iterator3 = contentArr[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+          var node = _step3.value;
+
+          if (node.type === 'file') this.touch(node.name).write(node.content);else if (node.type === 'directory') this.mkdir(node.name).load(node.content);else continue;
+        }
+      } catch (err) {
+        _didIteratorError3 = true;
+        _iteratorError3 = err;
+      } finally {
+        try {
+          if (!_iteratorNormalCompletion3 && _iterator3.return) {
+            _iterator3.return();
+          }
+        } finally {
+          if (_didIteratorError3) {
+            throw _iteratorError3;
+          }
+        }
+      }
+    }
+  }, {
+    key: 'root',
+    get: function get() {
+      return this.par.root;
+    }
+  }, {
+    key: 'path',
+    get: function get() {
+      return this.par.path + this.name + '/';
+    }
+  }]);
+  return Directory;
+}(Inode);
+
+var Jsonfs = function (_Directory) {
+  inherits(Jsonfs, _Directory);
+
+  function Jsonfs(name) {
+    classCallCheck(this, Jsonfs);
+    return possibleConstructorReturn(this, (Jsonfs.__proto__ || Object.getPrototypeOf(Jsonfs)).call(this, name, null));
+  }
+
+  createClass(Jsonfs, [{
+    key: 'root',
+    get: function get() {
+      return this;
+    }
+  }, {
+    key: 'path',
+    get: function get() {
+      return '/';
+    }
+  }], [{
+    key: 'load',
+    value: function load(obj) {
+      var fs = new Jsonfs(obj.name);
+      fs.load(obj.content);
+      return fs;
+    }
+  }, {
+    key: 'loads',
+    value: function loads(str) {
+      return Jsonfs.load(JSON.parse(str));
+    }
+  }]);
+  return Jsonfs;
+}(Directory);
 
 /**
  * This method returns the first argument it receives.
@@ -373,7 +1017,7 @@ function getNative(object, key) {
   return baseIsNative(value) ? value : undefined;
 }
 
-var defineProperty = (function() {
+var defineProperty$1 = (function() {
   try {
     var func = getNative(Object, 'defineProperty');
     func({}, '', {});
@@ -389,8 +1033,8 @@ var defineProperty = (function() {
  * @param {Function} string The `toString` result.
  * @returns {Function} Returns `func`.
  */
-var baseSetToString = !defineProperty ? identity : function(func, string) {
-  return defineProperty(func, 'toString', {
+var baseSetToString = !defineProperty$1 ? identity : function(func, string) {
+  return defineProperty$1(func, 'toString', {
     'configurable': true,
     'enumerable': false,
     'value': constant(string),
@@ -3936,240 +4580,6 @@ function whilst(test, iteratee, callback) {
   * @module Utils
   */
 
-var asyncGenerator = function () {
-  function AwaitValue(value) {
-    this.value = value;
-  }
-
-  function AsyncGenerator(gen) {
-    var front, back;
-
-    function send(key, arg) {
-      return new Promise(function (resolve, reject) {
-        var request = {
-          key: key,
-          arg: arg,
-          resolve: resolve,
-          reject: reject,
-          next: null
-        };
-
-        if (back) {
-          back = back.next = request;
-        } else {
-          front = back = request;
-          resume(key, arg);
-        }
-      });
-    }
-
-    function resume(key, arg) {
-      try {
-        var result = gen[key](arg);
-        var value = result.value;
-
-        if (value instanceof AwaitValue) {
-          Promise.resolve(value.value).then(function (arg) {
-            resume("next", arg);
-          }, function (arg) {
-            resume("throw", arg);
-          });
-        } else {
-          settle(result.done ? "return" : "normal", result.value);
-        }
-      } catch (err) {
-        settle("throw", err);
-      }
-    }
-
-    function settle(type, value) {
-      switch (type) {
-        case "return":
-          front.resolve({
-            value: value,
-            done: true
-          });
-          break;
-
-        case "throw":
-          front.reject(value);
-          break;
-
-        default:
-          front.resolve({
-            value: value,
-            done: false
-          });
-          break;
-      }
-
-      front = front.next;
-
-      if (front) {
-        resume(front.key, front.arg);
-      } else {
-        back = null;
-      }
-    }
-
-    this._invoke = send;
-
-    if (typeof gen.return !== "function") {
-      this.return = undefined;
-    }
-  }
-
-  if (typeof Symbol === "function" && Symbol.asyncIterator) {
-    AsyncGenerator.prototype[Symbol.asyncIterator] = function () {
-      return this;
-    };
-  }
-
-  AsyncGenerator.prototype.next = function (arg) {
-    return this._invoke("next", arg);
-  };
-
-  AsyncGenerator.prototype.throw = function (arg) {
-    return this._invoke("throw", arg);
-  };
-
-  AsyncGenerator.prototype.return = function (arg) {
-    return this._invoke("return", arg);
-  };
-
-  return {
-    wrap: function (fn) {
-      return function () {
-        return new AsyncGenerator(fn.apply(this, arguments));
-      };
-    },
-    await: function (value) {
-      return new AwaitValue(value);
-    }
-  };
-}();
-
-
-
-
-
-var classCallCheck = function (instance, Constructor) {
-  if (!(instance instanceof Constructor)) {
-    throw new TypeError("Cannot call a class as a function");
-  }
-};
-
-var createClass = function () {
-  function defineProperties(target, props) {
-    for (var i = 0; i < props.length; i++) {
-      var descriptor = props[i];
-      descriptor.enumerable = descriptor.enumerable || false;
-      descriptor.configurable = true;
-      if ("value" in descriptor) descriptor.writable = true;
-      Object.defineProperty(target, descriptor.key, descriptor);
-    }
-  }
-
-  return function (Constructor, protoProps, staticProps) {
-    if (protoProps) defineProperties(Constructor.prototype, protoProps);
-    if (staticProps) defineProperties(Constructor, staticProps);
-    return Constructor;
-  };
-}();
-
-
-
-
-
-
-
-var get$1 = function get$1(object, property, receiver) {
-  if (object === null) object = Function.prototype;
-  var desc = Object.getOwnPropertyDescriptor(object, property);
-
-  if (desc === undefined) {
-    var parent = Object.getPrototypeOf(object);
-
-    if (parent === null) {
-      return undefined;
-    } else {
-      return get$1(parent, property, receiver);
-    }
-  } else if ("value" in desc) {
-    return desc.value;
-  } else {
-    var getter = desc.get;
-
-    if (getter === undefined) {
-      return undefined;
-    }
-
-    return getter.call(receiver);
-  }
-};
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-var set = function set(object, property, value, receiver) {
-  var desc = Object.getOwnPropertyDescriptor(object, property);
-
-  if (desc === undefined) {
-    var parent = Object.getPrototypeOf(object);
-
-    if (parent !== null) {
-      set(parent, property, value, receiver);
-    }
-  } else if ("value" in desc && desc.writable) {
-    desc.value = value;
-  } else {
-    var setter = desc.set;
-
-    if (setter !== undefined) {
-      setter.call(receiver, value);
-    }
-  }
-
-  return value;
-};
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-var toConsumableArray = function (arr) {
-  if (Array.isArray(arr)) {
-    for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) arr2[i] = arr[i];
-
-    return arr2;
-  } else {
-    return Array.from(arr);
-  }
-};
-
 /**
  * Copyright (c) 2016 Ganesh Prasad Sahoo (GnsP)
  *
@@ -5678,148 +6088,6 @@ export const interpretSync = interpretSync;
 
 */
 
-var Path = function () {
-  function Path(pathstr) {
-    classCallCheck(this, Path);
-
-    if (!pathstr) this.arr = [];else {
-      this.arr = pathstr.split('/');
-      if (pathstr.startsWith('/')) this.arr[0] = '/';
-      if (pathstr.endsWith('/')) this.arr.pop();
-    }
-    this.normalize();
-  }
-
-  createClass(Path, [{
-    key: 'append',
-    value: function append(p2) {
-      var _arr;
-
-      (_arr = this.arr).push.apply(_arr, toConsumableArray(p2.arr));
-    }
-  }, {
-    key: 'normalize',
-    value: function normalize() {
-      var x = [];
-      var _iteratorNormalCompletion = true;
-      var _didIteratorError = false;
-      var _iteratorError = undefined;
-
-      try {
-        for (var _iterator = this.arr[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
-          var name = _step.value;
-
-          if (name === '.') continue;else if (name === '/') x = ['/'];else if (name === '..') x.pop();else x.push(name);
-        }
-      } catch (err) {
-        _didIteratorError = true;
-        _iteratorError = err;
-      } finally {
-        try {
-          if (!_iteratorNormalCompletion && _iterator.return) {
-            _iterator.return();
-          }
-        } finally {
-          if (_didIteratorError) {
-            throw _iteratorError;
-          }
-        }
-      }
-
-      this.arr = x;
-    }
-  }, {
-    key: 'level',
-    get: function get() {
-      return this.arr.length;
-    }
-  }, {
-    key: 'path',
-    get: function get() {
-      if (this.arr[0] === '/') {
-        this.arr[0] = '';
-        var r = this.arr.join('/');
-        this.arr[0] = '/';
-        return r;
-      }
-      return this.arr.join('/');
-    }
-  }, {
-    key: 'dirname',
-    get: function get() {
-      var arr = this.arr.slice(0, this.level - 1);
-      if (arr[0] === '/') {
-        arr[0] = '';
-        var r = arr.join('/');
-        arr[0] = '/';
-        return r;
-      }
-      return arr.join('/');
-    }
-  }, {
-    key: 'basename',
-    get: function get() {
-      return this.arr[this.level - 1];
-    }
-  }, {
-    key: 'extname',
-    get: function get() {
-      var x = this.basename.split('.');
-      if (x.length === 1) return '';
-      return x[x.length - 1];
-    }
-  }]);
-  return Path;
-}();
-
-function join() {
-  var p = new Path();
-
-  for (var _len = arguments.length, paths = Array(_len), _key = 0; _key < _len; _key++) {
-    paths[_key] = arguments[_key];
-  }
-
-  var _iteratorNormalCompletion2 = true;
-  var _didIteratorError2 = false;
-  var _iteratorError2 = undefined;
-
-  try {
-    for (var _iterator2 = paths[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
-      var path = _step2.value;
-
-      p.append(new Path(path));
-    }
-  } catch (err) {
-    _didIteratorError2 = true;
-    _iteratorError2 = err;
-  } finally {
-    try {
-      if (!_iteratorNormalCompletion2 && _iterator2.return) {
-        _iterator2.return();
-      }
-    } finally {
-      if (_didIteratorError2) {
-        throw _iteratorError2;
-      }
-    }
-  }
-
-  p.normalize();
-  return p.path;
-}
-
-function dirname(path) {
-  return new Path(path).dirname;
-}
-
-function basename(path) {
-  return new Path(path).basename;
-}
-
-function extname(path) {
-  return new Path(path).extname;
-}
-
 /**
  * Copyright (c) 2016 Ganesh Prasad Sahoo (GnsP)
  *
@@ -5877,6 +6145,272 @@ var browserenv = function (runtimeContext) {
   return env;
 }
 
+var Runtime = function () {
+  function Runtime() {
+    classCallCheck(this, Runtime);
+
+    this.root = new Jsonfs('root');
+    this.cwd = this.root;
+  }
+
+  createClass(Runtime, [{
+    key: 'context',
+    value: function context(basedir) {
+      return {
+        rootdir: this.root.path,
+        basedir: basedir,
+        pwd: this.pwd,
+        readFile: this.readFile,
+        open: this.open,
+        cwd: this.cwd
+      };
+    }
+  }, {
+    key: 'run',
+    value: function run(filepath) {
+      var src = this.readFile(filepath);
+      console.log(src);
+      interpretSync(src, filepath, browserenv(this.context(dirname(filepath))));
+    }
+  }, {
+    key: 'mkdir',
+    value: function mkdir(path) {
+      var d = this.cwd;
+      var p = new Path(path);
+      var count = 0;
+      var _iteratorNormalCompletion = true;
+      var _didIteratorError = false;
+      var _iteratorError = undefined;
+
+      try {
+        for (var _iterator = p.arr[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+          var name = _step.value;
+
+          var test = d.get(name);
+          if (test) d = test;else {
+            d = d.mkdir(name);
+            count += 1;
+          }
+        }
+      } catch (err) {
+        _didIteratorError = true;
+        _iteratorError = err;
+      } finally {
+        try {
+          if (!_iteratorNormalCompletion && _iterator.return) {
+            _iterator.return();
+          }
+        } finally {
+          if (_didIteratorError) {
+            throw _iteratorError;
+          }
+        }
+      }
+
+      return count;
+    }
+  }, {
+    key: 'resolve',
+    value: function resolve(path) {
+      var d = this.cwd;
+      var p = new Path(path);
+      var _iteratorNormalCompletion2 = true;
+      var _didIteratorError2 = false;
+      var _iteratorError2 = undefined;
+
+      try {
+        for (var _iterator2 = p.arr[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+          var name = _step2.value;
+
+          var test = d.get(name);
+          if (!test || test.type !== 'directory') return false;
+          d = test;
+        }
+      } catch (err) {
+        _didIteratorError2 = true;
+        _iteratorError2 = err;
+      } finally {
+        try {
+          if (!_iteratorNormalCompletion2 && _iterator2.return) {
+            _iterator2.return();
+          }
+        } finally {
+          if (_didIteratorError2) {
+            throw _iteratorError2;
+          }
+        }
+      }
+
+      return d;
+    }
+  }, {
+    key: 'cd',
+    value: function cd(path) {
+      var d = this.resolve(path);
+      if (!d) return false;
+      this.cwd = d;
+      return true;
+    }
+  }, {
+    key: 'mount',
+    value: function mount(path, driverObject) {
+      var p = dirname(path);
+      var d = basename(path);
+      this.resolve(p).mount(d, driverObject);
+    }
+  }, {
+    key: 'touch',
+    value: function touch(filename) {
+      this.cwd.touch(filename);
+    }
+  }, {
+    key: 'open',
+    value: function open(filepath) {
+      var d = this.cwd;
+      var absolutepath = join(this.pwd, filepath);
+      var p = new Path(dirname(absolutepath));
+
+      /*
+      console.log(new Path(this.pwd));
+      console.log(new Path(filepath));
+      console.log(absolutepath);
+      console.log(p);
+      console.log('\n\n');
+          console.log('*********#######################*********\n\n\n',d,'\n\n*********\n\n\n');
+      */
+
+      var _iteratorNormalCompletion3 = true;
+      var _didIteratorError3 = false;
+      var _iteratorError3 = undefined;
+
+      try {
+        for (var _iterator3 = p.arr[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+          var name = _step3.value;
+
+          //console.log(name);
+          var test = d.get(name);
+          //console.log('###', test);
+          if (!test || test.type !== 'directory') return null;
+          d = test;
+        }
+      } catch (err) {
+        _didIteratorError3 = true;
+        _iteratorError3 = err;
+      } finally {
+        try {
+          if (!_iteratorNormalCompletion3 && _iterator3.return) {
+            _iterator3.return();
+          }
+        } finally {
+          if (_didIteratorError3) {
+            throw _iteratorError3;
+          }
+        }
+      }
+
+      var file = d.get(basename(filepath));
+      if (file && file.type === 'file') return file;
+      return null;
+    }
+  }, {
+    key: 'readFile',
+    value: function readFile(filepath) {
+      //console.log('-----------------------',filepath,'----------------------');
+      //debugger;
+      var f = this.open(filepath);
+
+      //console.log(new Path(filepath));
+
+      if (f) return f.content;
+      return null;
+    }
+  }, {
+    key: 'pwd',
+    get: function get() {
+      return this.cwd.path;
+    }
+  }]);
+  return Runtime;
+}();
+
+var Package = function () {
+  function Package(pkgStr) {
+    var _this = this;
+
+    classCallCheck(this, Package);
+
+    var pkg = JSON.parse(pkgStr);
+
+    var bundleStr = pkg.rootfs;
+    var config = pkg.config;
+
+    this.main = join('/bundle', config.main);
+    this.jsImports = config.imports;
+    this.runtime = new Runtime();
+    this._loadlock = this.jsImports.length;
+
+    var f = Jsonfs.loads(bundleStr);
+    this.runtime.mount('/bundle', f.get('bundle'));
+    this.runtime.mount('/include', f.get('include'));
+
+    console.log(this.runtime);
+
+    var _iteratorNormalCompletion = true;
+    var _didIteratorError = false;
+    var _iteratorError = undefined;
+
+    try {
+      for (var _iterator = this.jsImports[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+        var imp = _step.value;
+
+        var cb = function cb(script) {
+          var head = document.getElementsByTagName('head')[0];
+          head.removeChild(script);
+          _this._loadlock -= 1;
+          if (_this._loadlock === 0) _this.run();
+        };
+        loadScript(imp.url, cb);
+      }
+    } catch (err) {
+      _didIteratorError = true;
+      _iteratorError = err;
+    } finally {
+      try {
+        if (!_iteratorNormalCompletion && _iterator.return) {
+          _iterator.return();
+        }
+      } finally {
+        if (_didIteratorError) {
+          throw _iteratorError;
+        }
+      }
+    }
+  }
+
+  createClass(Package, [{
+    key: 'run',
+    value: function run() {
+      this.runtime.run(this.main);
+    }
+  }]);
+  return Package;
+}();
+
+function loadScript(url, callback) {
+  var head = document.getElementsByTagName('head')[0];
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src = url;
+
+  var cb = function cb() {
+    callback(script);
+  };
+  script.onreadystatechange = cb;
+  script.onload = cb;
+
+  head.appendChild(script);
+}
+
 /**
  * Copyright (c) 2016 Ganesh Prasad Sahoo (GnsP)
  *
@@ -5900,9 +6434,21 @@ var browserenv = function (runtimeContext) {
  *
  */
 
-document.addEventListener('DOMContentLoaded', function () {
-  var main = document.getElementById('ironscript-main').text;
+/*
+import browserenv from './browser_env.js';
+import {interpretSync} from '../iron.js';
+
+document.addEventListener('DOMContentLoaded', () => {
+  let main = document.getElementById('ironscript-main').text;
   interpretSync(main, 'ironscript-main', browserenv());
 }, false);
+*/
 
-}());
+function runPackage(pkgstr) {
+  var p = new Package(pkgstr);
+  return null;
+}
+
+exports.runPackage = runPackage;
+
+}((this.ironscript = this.ironscript || {})));
