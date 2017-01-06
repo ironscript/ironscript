@@ -1,0 +1,4 @@
+_sync
+  (_include "./testModules/module1.is")
+  (_def ans "yes")
+  (_rho '(does the include work ?) (_echo ans))

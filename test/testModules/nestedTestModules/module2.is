@@ -1,0 +1,2 @@
+_sync
+  (_echo "module2 inside the nested testModules directory")

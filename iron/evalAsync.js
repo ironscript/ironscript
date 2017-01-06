@@ -37,6 +37,7 @@ const _def = new IronSymbol ('_def');
 const _assign_unsafe = new IronSymbol ('_assign!');
 const _fn = new IronSymbol('_fn');
 const _begin = new IronSymbol('_begin');
+const _sync = new IronSymbol('_sync');
 const _rho = new IronSymbol('_rho');
 
 const _self = new IronSymbol('_self'); 
@@ -49,6 +50,8 @@ const _set = new IronSymbol('_set');
 const _push = new IronSymbol('_push'); 
 const _stream = new IronSymbol('_stream'); 
 const _do = new IronSymbol('_do'); 
+const _include = new IronSymbol('_include'); 
+const _import = new IronSymbol('_import'); 
 
 const defaultCallback = (err, env) => {
   if (err) {
@@ -206,13 +209,18 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
       else nextTick (cb, null, env, null, env);
     });
   }
-  else if (_begin.equal(x.car)) {
+  else if (_begin.equal(x.car) || _sync.equal(x.car)) {
     let root = x.cdr;
     let cur = root;
+    
+    let _env = env;
+    if (_begin.equal(x.car)) _env = new Env(null, null, env);
 
-    let _env = new Env(null, null, env);
-
-    _env.sync();
+    let unsyncFlag = false;
+    if (!_env.syncLock) {
+      unsyncFlag = true;
+      _env.sync();
+    }
     whilst (
       () => { return x.cdr instanceof Cell; },
       (callback) => {
@@ -223,7 +231,7 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
       },
 
       (err, res) => {
-        _env.unsync();
+        if (unsyncFlag) _env.unsync();
         nextTick (cb, err, _env, null, res);
       }
     );
@@ -264,6 +272,23 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
     });
     nextTick (cb, null, env, null, null);
 
+  }
+  else if (_include.equal(x.car)) {
+    let includefn = env.get(x.car);
+    nextTick (evalAsync, x.cdr.car, env, (err, _env, _, sourcename) => {
+      nextTick (includefn, err, env, cb, sourcename);
+    });
+  }
+  else if (_import.equal(x.car)) {
+    //console.log('\n\n\n',env,'\n\n\n');
+    let importfn = env.get(x.car);
+    nextTick (evalAsync, x.cdr.car, env, (err, _env, _, sourcename) => {
+      let names = null;
+      if (x.cdr.cdr) names = x.cdr.cdr.car;
+      nextTick (evalAsync, names, env, (err, _env, _, namesList) => {
+        nextTick (importfn, err, env, cb, sourcename, namesList);
+      });
+    });
   }
   else {
     nextTick (evalAsync, x.car, env, (err, env, _, func) => {

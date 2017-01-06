@@ -3,7 +3,7 @@ import resolve from 'rollup-plugin-node-resolve';
 import commonjs from 'rollup-plugin-commonjs';
 
 export default {
-  entry: './ironscript-node.js',
+  entry: './nodejs-runtime/ironscript-node.js',
   dest: './dist/node/ironscript.js',
   format: 'cjs',
   plugins: [

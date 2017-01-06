@@ -1,0 +1,9 @@
+{
+  "main": "./test.is",
+  "imports": [
+      {
+        "name": "vdom",
+        "url": "./jsmodules/vdom.js"
+      }
+    ]
+}

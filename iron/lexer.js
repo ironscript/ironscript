@@ -122,7 +122,7 @@ export default class Lexer {
         this.source.next();
         let fnStr = this.readSpecial('}');
         try {
-          return fxAsync(new Function("$return", "$throw", "$catch", "$yield", "$env", "...args", fnStr)); // jshint ignore: line
+          return fxAsync(new Function("$return", "$throw", "$catch", "$yield", "$scope", "...args", fnStr+';$return(null);')); // jshint ignore: line
         }
         catch (e) {
           console.error(fnStr);

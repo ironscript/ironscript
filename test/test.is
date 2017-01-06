@@ -5,20 +5,14 @@
 ; PS Comments start with ';' and end with the newline.
 
 _begin
+  ( @{
+    console.log(vdom.message);  
+  }@ )
+
+  (_include "stdlib")
+
   (_def a 1) 
-  (_echo a)
-  
-  (_def + @{ $return (args[0]+args[1]); }@ )   ; implementation of the + op
-  (_def - @{ $return (args[0]-args[1]); }@ )
-  (_def * @{ $return (args[0]*args[1]); }@ )
-  (_def / @{ $return (args[0]/args[1]); }@ )
-  (_def == @{ $return (args[0]==args[1]); }@ )
-  (_def concat @{ 
-    let s = '';
-    for (let arg of args) s += arg;
-    $return (s);
-   }@ )
-  
+  (_echo a) 
   (_echo (+ a a))
 
   (_def twice (_fn (n) (+ n n)))
@@ -65,9 +59,8 @@ _begin
   (myFunc 5)
 
 
-  (_def import (_fn (filename) (_eval (_readfile filename) filename) ))
-  (_def mod (_import "./test1.is") )
-  (_echo (_get mod name))
+  (_import "./test1.is" _all)
+  (_echo name)
 
   (_echo '( (IronScript is) quite ready))
 
@@ -77,8 +70,17 @@ _begin
     setInterval (() => { $yield(i++); }, 1000);
    }@
   )
+
+  (@{ $scope.setc('testKey', 'Testing const interopTable'); }@)
   
   (_def twiceNums (_stream * 2 (natstream)))
   (_def echoStream (_fn (stream) (_stream _echo (stream) ) ) )
   (_do (echoStream twiceNums))
+
+
+  (_include "./testInclude.is")
+  [does the include work ?]
+
+  (@{ console.log($scope.getc('testKey')); }@)
+
 

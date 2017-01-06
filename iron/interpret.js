@@ -35,6 +35,14 @@ export function _eval (err, env, cb, src, name) {
   });
 }
 
+export function _eval_unsafe (err, env, cb, src, name) {
+  if (!name) name = 'unnamed';
+  let p = new Parser({name: name, buffer: src});
+  nextTick (evalAsync, p.parse(), env, (err, _env, _cb, val) => {
+    if (cb) nextTick (cb, err, env, null, _env);
+  });
+}
+
 export function interpretSync (src, name, env) {
   if (!name) name = 'unnamed';
   let p = new Parser ({name: name, buffer: src});

@@ -25,20 +25,120 @@
 import {nextTick} from 'async-es';
 import Parser from './parser.js';
 import evalAsync from './evalAsync.js';
+import IronSymbol from './symbol.js';
+import Cell from './cell.js';
 
-export default function (env) {
-  let readSource = env.map.get('_readsource');
+const _readsource = new IronSymbol('_readsource');
+
+export function importfn (env) {
   let imported = new Map();
-  return (err, _env, cb, sourcename) => {
-    if (imported.has(sourcename)) nextTick (cb, null, _env, null, imported.get(sourcename));
+  return (err, _env, cb, sourcename, namesList) => {
+    let readSource = _env.get(_readsource);
+
+    let basedir = _env.getc('__base_dir__');
+    let __include_dir__ = _env.getc('__include_dir__');
+    let __path_utils__ = _env.getc('__path_utils__');
+
+    let join = __path_utils__.join;
+    let dirname = __path_utils__.dirname;
+    let basename = __path_utils__.basename;
+    
+    let sourceDir = null;
+    let _all = new IronSymbol('_all');
+
+    //console.log(_env);
+    
+    if (!sourcename.endsWith('.is')) sourceDir = join(__include_dir__, dirname(sourcename));
+    else sourceDir = join(basedir, dirname(sourcename));
+    let filename = join(sourceDir, basename(sourcename));
+    //console.log('debug: '+filename);
+
+    //console.log(namesList);
+    if (imported.has(filename)) {
+      let importEnv = imported.get(filename);
+      if (namesList) {
+        //console.log('\t\t\t\tDebug (1): \t\t',namesList instanceof Cell);
+        if (namesList instanceof Cell) {
+          while (namesList instanceof Cell) {
+            //console.log('\t\t\t\tDebug: \t\t',importEnv.get(namesList.car));
+            _env.syncAndBind(namesList.car, importEnv.get(namesList.car));
+            namesList = namesList.cdr;
+          }
+        }
+        else if (_all.equal(namesList)) _env.map = new Map([..._env.map, ...importEnv.map]);
+      }
+      nextTick (cb, null, _env, null, importEnv);
+    }
     else {
       nextTick (readSource, err, _env, (err, __env, _cb, src) => {
         let p = new Parser ({name:sourcename, buffer:src});
-        nextTick (evalAsync, p.parse(), env, (err, _env_, _cb, val) => {
-          imported.set (sourcename, _env_);
-          nextTick (cb, null, _env, null, _env_);
+        _env.defc('__base_dir__', sourceDir);
+
+        nextTick (evalAsync, p.parse(), env, (err, importEnv, _cb, val) => {
+          imported.set (filename, importEnv);
+          _env.defc('__base_dir__', basedir);
+          if (namesList) {
+            //console.log('\t\t\t\tDebug (2): \t\t',namesList instanceof Cell);
+            if (namesList instanceof Cell) {
+              while (namesList instanceof Cell) {
+
+                //console.log('\t\t\t\tDebug: \t\t',importEnv.get(namesList.car));
+                _env.syncAndBind(namesList.car, importEnv.get(namesList.car));
+                namesList = namesList.cdr;
+              }
+            }
+            else if (_all.equal(namesList)) _env.map = new Map([..._env.map, ...importEnv.map]);
+          }
+          nextTick (cb, null, _env, null, importEnv);
         });
-      } , sourcename);
+      } , basename(sourcename));
     }
   }
-}    
+}
+
+export function includefn (env) {
+  let readsource = env.get(_readsource);
+  let included = new Map();
+  let src = null;
+  return (err, _env, cb, sourcename) => {
+    let basedir = _env.getc('__base_dir__');
+    let __include_dir__ = _env.getc('__include_dir__');
+    let __path_utils__ = _env.getc('__path_utils__');
+    
+    let join = __path_utils__.join;
+    let dirname = __path_utils__.dirname;
+    let basename = __path_utils__.basename;
+
+    let sourceDir = null;
+    
+    //console.log('__debug__: '+dirname(sourcename));
+    if (!sourcename.endsWith('.is')) sourceDir = join(__include_dir__, dirname(sourcename));
+    else sourceDir = join(basedir, dirname(sourcename));
+    //console.log('__debug__: ', sourceDir);
+    _env.defc('__base_dir__', sourceDir);
+    let filename = join(sourceDir, basename(sourcename));
+    
+    //console.log('debug: '+filename);
+    if (included.has(filename)) { 
+      src = included.get(filename);
+      let p = new Parser({name: sourcename, buffer: src});
+      nextTick (evalAsync, p.parse(), _env, (err, _env, _cb, val) => {
+        _env.defc('__base_dir__', basedir);
+        nextTick (cb, null, _env, null, null);
+      });
+    }
+    else {
+      nextTick (readsource, err, _env, (err, __env, _cb, src) => {
+        included.set(filename, src);
+        //console.log(filename, '\n\n', src);
+        let p = new Parser({name: sourcename, buffer: src});
+        nextTick (evalAsync, p.parse(), _env, (err, _env, _cb, val) => {
+          _env.defc('__base_dir__', basedir);
+          nextTick (cb, null, _env, null, null);
+        });
+      }, basename(sourcename));
+    }
+  }
+}
+
+
