@@ -33,6 +33,7 @@ export default function (basedir) {
   env.defc('__base_dir__',      basedir );
   env.defc('__readfile__',      readFile );
   env.defc('__include_dir__',   join(__dirname, 'include') );
+  env.defc('imports', global);
   env.defc('__path_utils__', {
     join: join, 
     dirname: dirname, 

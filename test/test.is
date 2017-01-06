@@ -5,6 +5,10 @@
 ; PS Comments start with ';' and end with the newline.
 
 _begin
+  ( @{
+    console.log(vdom.message);  
+  }@ )
+
   (_include "stdlib")
 
   (_def a 1) 

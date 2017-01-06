@@ -1,30 +1,4 @@
-class Path {
-  constructor (pathstr) {
-    if (!pathstr) this.arr = [];
-    else this.arr = pathstr.split('/');
-  }
-
-  get level () {
-    return this.arr.length;
-  }
-
-  get dirname () {
-    return this.arr.slice(0, this.level-1).join('/');
-  }
-
-  get basename () {
-    return this.arr[this.level-1];
-  }
-
-  get extname () {
-    let x = this.basename.split('.');
-    return x[x.length-1];
-  }
-
-  append (p2) {
-    this.arr.push(...p2.arr);
-  }
-}
+'use strict';
 
 class Inode {
   constructor (name, content) {
@@ -74,7 +48,8 @@ class Directory extends Inode {
     this.content.set('/', this.root);
   }
   get root () { return this.par.root; }
-  
+  get path () { return this.par.path + this.name + '/'; }
+
   mkdir (name) {
     if (!this.content.has(name)) this.content.set(name, new Directory (name, this) );
     return this.content.get(name);
@@ -101,8 +76,17 @@ class Directory extends Inode {
   }
   
   mount (name, fs) {
-    this.content.set(name, new Directory (name, this));
-    this.content.get(name).content = fs.content;
+    if (fs instanceof Directory) {
+      let mounted = new Directory (name, this);
+      mounted.content = fs.content;
+      mounted.content.set ('..', this);
+      mounted.content.set ('/', this.root);
+
+      this.content.set (name, mounted);
+    }
+    else {
+      this.content.set(name, fs);
+    }
     return this.content.get (name);
   }
 
@@ -131,23 +115,8 @@ class Jsonfs extends Directory {
   constructor (name) {
     super (name, null);
   }
-  get root () {
-    return this;
-  }
-
-  resolve (path) {
-    let p = new Path(path);
-    let x = null;
-    for (let d of p.arr) {
-      if (d==='') x = this.root;
-      else x = x.get(d);
-    }
-    return x;
-  }
-
-  readFile (path) {
-    return this.resolve(path).read();
-  }
+  get root () { return this; }
+  get path () { return '/'; }
 
   static load (obj)  {
     let fs = new Jsonfs (obj.name);
@@ -160,7 +129,6 @@ class Jsonfs extends Directory {
   }
 }
 
-
 function test () {
   let fs0 = new Jsonfs ('root');
   let testdir = fs0.mkdir('test');
@@ -172,3 +140,5 @@ function test () {
 }
 
 test();
+
+module.exports = Jsonfs;

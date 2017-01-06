@@ -23,14 +23,29 @@
 
 
 import {nextTick} from 'async-es';
-import {readFile} from 'fs';
-import {dirname} from 'path';
+import {readFile, readFileSync} from 'fs';
+import {dirname, join} from 'path';
 
 import nodeEnv from './node_env.js';
 import {interpretSync} from '../iron.js';
 
-const filename = process.argv[2];
-const basedir = dirname(filename);
+let filename = null;
+let basedir = null;
+let config = null;
+
+if (process.argv.length > 2) filename = process.argv[2];
+else {
+  config = JSON.parse(readFileSync('./iron.config.json', 'utf8'));
+  if (!config) throw 'config could not be extracted from iron.config.json';
+  filename = config.main;
+}
+
+if (filename) basedir = dirname(filename);
+
+function loadScript (url, name) { 
+  global[name] = require(join(process.cwd(),url)); 
+}
+for (let imp of config.imports) loadScript (imp.url, imp.name);
 
 readFile(filename, 'utf8', function (err, str) {
   if (err) throw err;

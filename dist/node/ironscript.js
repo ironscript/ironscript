@@ -5711,6 +5711,7 @@ var nodeEnv = function (basedir) {
   env.defc('__base_dir__', basedir);
   env.defc('__readfile__', fs.readFile);
   env.defc('__include_dir__', path.join(__dirname, 'include'));
+  env.defc('imports', global);
   env.defc('__path_utils__', {
     join: path.join,
     dirname: path.dirname,
@@ -5761,8 +5762,45 @@ var nodeEnv = function (basedir) {
  *
  */
 
-var filename = process.argv[2];
-var basedir = path.dirname(filename);
+var filename = null;
+var basedir = null;
+var config = null;
+
+if (process.argv.length > 2) filename = process.argv[2];else {
+  config = JSON.parse(fs.readFileSync('./iron.config.json', 'utf8'));
+  if (!config) throw 'config could not be extracted from iron.config.json';
+  filename = config.main;
+}
+
+if (filename) basedir = path.dirname(filename);
+
+function loadScript(url, name) {
+  console.log(name, url);
+  global[name] = require(path.join(process.cwd(), url));
+}
+var _iteratorNormalCompletion = true;
+var _didIteratorError = false;
+var _iteratorError = undefined;
+
+try {
+  for (var _iterator = config.imports[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+    var imp = _step.value;
+    loadScript(imp.url, imp.name);
+  }
+} catch (err) {
+  _didIteratorError = true;
+  _iteratorError = err;
+} finally {
+  try {
+    if (!_iteratorNormalCompletion && _iterator.return) {
+      _iterator.return();
+    }
+  } finally {
+    if (_didIteratorError) {
+      throw _iteratorError;
+    }
+  }
+}
 
 fs.readFile(filename, 'utf8', function (err, str) {
   if (err) throw err;
