@@ -85,7 +85,7 @@ export default function bundle () {
   let config = JSON.parse(readFileSync('./iron.config.json', 'utf8'));
   let bundleStr = Bundler.bundle (config.main);
   return 'IronscriptPackage("'+
-    JSON.stringify({ config: config, rootfs: bundleStr }, null, 2} +
+    JSON.stringify({ config: config, rootfs: bundleStr }, null, 2) +
     '");';
 }
 

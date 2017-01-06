@@ -1,2 +1,2 @@
 import bundle from './bundler.js';
-bundle();
+console.log(bundle());

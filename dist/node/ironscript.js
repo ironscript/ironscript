@@ -5775,7 +5775,6 @@ if (process.argv.length > 2) filename = process.argv[2];else {
 if (filename) basedir = path.dirname(filename);
 
 function loadScript(url, name) {
-  console.log(name, url);
   global[name] = require(path.join(process.cwd(), url));
 }
 var _iteratorNormalCompletion = true;
