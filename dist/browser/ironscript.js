@@ -6169,7 +6169,7 @@ var Runtime = function () {
     key: 'run',
     value: function run(filepath) {
       var src = this.readFile(filepath);
-      console.log(src);
+      //console.log(src);
       interpretSync(src, filepath, browserenv(this.context(dirname(filepath))));
     }
   }, {
@@ -6353,7 +6353,7 @@ var Package = function () {
     this.runtime.mount('/bundle', f.get('bundle'));
     this.runtime.mount('/include', f.get('include'));
 
-    console.log(this.runtime);
+    //console.log(this.runtime);
 
     var _iteratorNormalCompletion = true;
     var _didIteratorError = false;
