@@ -6173,7 +6173,7 @@ var Runtime = function () {
     key: 'run',
     value: function run(filepath) {
       var src = this.readFile(filepath);
-      console.log(src);
+      //console.log(src);
       interpretSync(src, filepath, browserenv(this.context(dirname$1(filepath))));
     }
   }, {

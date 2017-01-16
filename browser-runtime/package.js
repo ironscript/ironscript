@@ -18,7 +18,7 @@ export default class Package {
     this.runtime.mount ('/bundle', f.get('bundle'));
     this.runtime.mount ('/include', f.get('include'));
     
-    console.log(this.runtime);
+    //console.log(this.runtime);
 
     for (let imp of this.jsImports) {
       let cb = (script) => {
