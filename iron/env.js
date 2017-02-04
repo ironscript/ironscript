@@ -40,6 +40,14 @@ export default class Env {
     this.rho = new Rho(this);
     this.constTable = new Map();
   }
+  
+  static clone (env) {
+    let e = new Env(null, null, env.par);
+    e.map = env.map;
+    e.rho = env.rho;
+    e.constTable = env.constTable;
+    return e;
+  }
 
   sync () {
     this.syncLock = true;
@@ -114,4 +122,3 @@ export default class Env {
   }
 
 }
-

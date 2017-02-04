@@ -88,7 +88,7 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
     nextTick (evalAsync, val, env, (err, _env, _, value) => {
       let sts = env.bind(name, value);
       if (!sts) nextTick (cb, 'can _def only inside a _begin block');
-      else nextTick (cb, null, env, null, true);
+      else nextTick (cb, null, env, null, value);
     });
   }
   else if (_assign_unsafe.equal(x.car)) {
@@ -97,7 +97,7 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
     nextTick (evalAsync, val, env, (err, _env, _, value) => {
       let sts = env.find(name).bind(name, value);
       if (!sts) nextTick (cb, 'can _def only inside a _begin block');
-      else nextTick (cb, null, env, null, true);
+      else nextTick (cb, null, env, null, value);
     });
   }
   else if (_get.equal(x.car)) {
@@ -240,21 +240,36 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
     let func = x.cdr.car;
     let args = x.cdr.cdr;
 
-    let argvals = [];
+    //let argvals = [];
     let arglist = [];
+    //let argflags = [];
+    //let argcount = 0;
     while (args instanceof Cell) {
-      argvals.push (undefined);
+      //argvals.push (null);
+      //argflags.push(false);
       arglist.push (args.car);
       args = args.cdr;
     }
+    //argcount = argflags.length;
 
     nextTick (evalAsync, func, env, (err, _env, _, func) => {
       
       let stream = (err, __env, cb, _) => {
+        let argvals = Array(arglist.length);
+        let argflags = [];
+        let argcount = arglist.length;
         for (let i=0; i<arglist.length; i++) {
+          argflags.push(false);
           nextTick (evalAsync, arglist[i], env, (err, _env, _, argval) => {
-            argvals[i] = argval;
-            nextTick (func, err, env, cb, ...argvals);
+            if (argval) {
+              //debugger;
+              argvals[i] = argval;
+              if (!argflags[i]) {
+                argflags[i] = true;
+                argcount--;
+              }
+            }
+            if (argcount === 0) nextTick (func, err, env, cb, ...argvals);
           });
         }
       };
@@ -353,5 +368,4 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
   }
 
 }
-
 

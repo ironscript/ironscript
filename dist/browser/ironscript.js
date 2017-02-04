@@ -5096,6 +5096,15 @@ var Env = function () {
     value: function getc(key) {
       if (this.constTable.has(key)) return this.constTable.get(key);else if (this.par !== null) return this.par.getc(key);else return null;
     }
+  }], [{
+    key: 'clone',
+    value: function clone(env) {
+      var e = new Env(null, null, env.par);
+      e.map = env.map;
+      e.rho = env.rho;
+      e.constTable = env.constTable;
+      return e;
+    }
   }]);
   return Env;
 }();
@@ -5178,7 +5187,7 @@ function evalAsync(x, env) {
       var val = x.cdr.cdr.car;
       nextTick(evalAsync, val, env, function (err, _env, _, value) {
         var sts = env.bind(name, value);
-        if (!sts) nextTick(cb, 'can _def only inside a _begin block');else nextTick(cb, null, env, null, true);
+        if (!sts) nextTick(cb, 'can _def only inside a _begin block');else nextTick(cb, null, env, null, value);
       });
     })();
   } else if (_assign_unsafe.equal(x.car)) {
@@ -5187,7 +5196,7 @@ function evalAsync(x, env) {
       var val = x.cdr.cdr.car;
       nextTick(evalAsync, val, env, function (err, _env, _, value) {
         var sts = env.find(name).bind(name, value);
-        if (!sts) nextTick(cb, 'can _def only inside a _begin block');else nextTick(cb, null, env, null, true);
+        if (!sts) nextTick(cb, 'can _def only inside a _begin block');else nextTick(cb, null, env, null, value);
       });
     })();
   } else if (_get.equal(x.car)) {
@@ -5317,21 +5326,37 @@ function evalAsync(x, env) {
       var func = x.cdr.car;
       var args = x.cdr.cdr;
 
-      var argvals = [];
+      //let argvals = [];
       var arglist = [];
+      //let argflags = [];
+      //let argcount = 0;
       while (args instanceof Cell) {
-        argvals.push(undefined);
+        //argvals.push (null);
+        //argflags.push(false);
         arglist.push(args.car);
         args = args.cdr;
       }
+      //argcount = argflags.length;
 
       nextTick(evalAsync, func, env, function (err, _env, _, func) {
 
         var stream = function stream(err, __env, cb, _) {
+          var argvals = Array(arglist.length);
+          var argflags = [];
+          var argcount = arglist.length;
+
           var _loop = function _loop(i) {
+            argflags.push(false);
             nextTick(evalAsync, arglist[i], env, function (err, _env, _, argval) {
-              argvals[i] = argval;
-              nextTick.apply(undefined, [func, err, env, cb].concat(argvals));
+              if (argval) {
+                //debugger;
+                argvals[i] = argval;
+                if (!argflags[i]) {
+                  argflags[i] = true;
+                  argcount--;
+                }
+              }
+              if (argcount === 0) nextTick.apply(undefined, [func, err, env, cb].concat(toConsumableArray(argvals)));
             });
           };
 
@@ -5455,6 +5480,8 @@ function evalAsync(x, env) {
  */
 
 function fn(params, body, env) {
+  var closureEnv = Env.clone(env);
+  if (env.syncLock) closureEnv.sync();
   return function (err, _env, cb) {
     if (err) cb(err);
     //console.log (body ,'\n\n\n' ,params,'\n\n\n',args,'\n\n\n');
@@ -5464,7 +5491,7 @@ function fn(params, body, env) {
       args[_key - 3] = arguments[_key];
     }
 
-    nextTick(evalAsync, body, new Env(params, Cell.list(args), env), cb);
+    nextTick(evalAsync, body, new Env(params, Cell.list(args), closureEnv), cb);
   };
 }
 
