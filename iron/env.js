@@ -100,6 +100,7 @@ export default class Env {
     else ret = key;
     
     if (ret instanceof Function) return ret;
+    else if (ret instanceof Object && ret.__itype__ === 'stream') return ret;
     else if (ret instanceof Object) return Object.assign({}, ret);
     return ret;
   }

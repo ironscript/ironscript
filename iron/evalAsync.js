@@ -24,6 +24,7 @@
 
 import Cell from './cell.js';
 import Env from './env.js';
+import Stream from './stream.js';
 import {fn} from './higher.js';
 import IronSymbol from './symbol.js';
 import IError from './errors.js';
@@ -48,8 +49,10 @@ const _map_ = new IronSymbol('_map_');
 const _get = new IronSymbol('_get'); 
 const _set = new IronSymbol('_set'); 
 const _push = new IronSymbol('_push'); 
+const _pull = new IronSymbol('_pull'); 
 const _stream = new IronSymbol('_stream'); 
 const _do = new IronSymbol('_do'); 
+const _on = new IronSymbol('_on'); 
 const _include = new IronSymbol('_include'); 
 const _import = new IronSymbol('_import'); 
 
@@ -254,14 +257,14 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 
     nextTick (evalAsync, func, env, (err, _env, _, func) => {
       
-      let stream = (err, __env, cb, _) => {
+      let corefn = (updatefn) => {
         let argvals = Array(arglist.length);
         let argflags = [];
         let argcount = arglist.length;
         for (let i=0; i<arglist.length; i++) {
           argflags.push(false);
           nextTick (evalAsync, arglist[i], env, (err, _env, _, argval) => {
-            if (argval) {
+            if (argval !== null && argval !== undefined) {
               //debugger;
               argvals[i] = argval;
               if (!argflags[i]) {
@@ -269,24 +272,47 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
                 argcount--;
               }
             }
-            if (argcount === 0) nextTick (func, err, env, cb, ...argvals);
+            if (argcount === 0) nextTick (func, err, env, (err, _env, _cb, retval) => {
+                nextTick (updatefn, retval);
+              } , ...argvals);
           });
         }
       };
       
-      nextTick(cb, err, env, null, stream);
+      nextTick(cb, err, env, null, new Stream(corefn, env) );
 
+    });
+  }
+  else if (_on.equal(x.car)) {
+    let controlStream = x.cdr.car;
+    let expr = x.cdr.cdr.car;
+    
+    nextTick (evalAsync, controlStream, env, (err, _env, _, cs) => {
+      let corefn = (updatefn) => {
+        cs.addcb((err, _env, _cb, val) => {
+          nextTick (evalAsync, expr, env, (err, _env, _, val) => {
+            nextTick (updatefn, val);
+          });
+        });
+      };
+      let stream = new Stream (corefn, env);
+      nextTick (cb, err, env, null, stream);
+    });
+  }
+  else if (_pull.equal(x.car)) {
+    let stream = x.cdr.car;
+    nextTick (evalAsync, stream, env, (err, _env, _, s) => {
+      if (s instanceof Object && s.__itype__==='stream')
+        nextTick (cb, null, env, null, s.value);
+      else nextTick (cb, new IError("can pull only from streams"));
     });
   }
   else if (_do.equal(x.car)) {
     let stream = x.cdr.car;
-    nextTick (evalAsync, stream, env, (err, _env, _, streamfn) => {
-      nextTick (streamfn, err, env, (err) => {
-        if (err) throw err;
-      });
+    nextTick (evalAsync, stream, env, (err, _env, _, streamObj) => {
+      streamObj.addcb ((err) => { if(err) throw err;} );
     });
     nextTick (cb, null, env, null, null);
-
   }
   else if (_include.equal(x.car)) {
     let includefn = env.get(x.car);
@@ -343,6 +369,12 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
           //});
         }
       }
+      
+      else if (func instanceof Object && func.__itype__ === 'stream') {
+        func.addcb(cb)
+        nextTick (cb, err, env, null, func.value);
+      }
+
       else if (func instanceof Function) {
         let args = [];
         while (x.cdr instanceof Cell) {
