@@ -4940,13 +4940,14 @@ var Rho = function () {
       var res = void 0,
           varvec = void 0;
       //console.log ('\n\n\n#############################\n\n\n', varvec);
-      var r = this.find(cell, varvec);
+      var r = this.find(cell);
       //console.log(r);
       res = r[0];
       if (res === null) return null;
 
       varvec = r[1];
       var args = [];
+      var argStrs = [];
       var _iteratorNormalCompletion = true;
       var _didIteratorError = false;
       var _iteratorError = undefined;
@@ -4955,11 +4956,14 @@ var Rho = function () {
         for (var _iterator = varvec[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
           var v = _step.value;
 
-          if (v instanceof IronSymbol) args.push(env.get(v));else args.push(v);
+          if (v instanceof IronSymbol) {
+            args.push(env.get(v));
+            argStrs.push(v.symbol);
+          } else {
+            args.push(v);
+            argStrs.push('' + v);
+          }
         }
-        //console.log ('\n\n\ndebug: \n----------\n\n\n', inspect(res), '\n\n\n', inspect(cell), '\n\n\n', varvec, '\n\n\n', inspect(env));
-        //let scope = new Env (Cell.list(res.params), Cell.list(args), env);
-        //console.log('debug: \n' +inspect(scope));
       } catch (err) {
         _didIteratorError = true;
         _iteratorError = err;
@@ -4975,7 +4979,43 @@ var Rho = function () {
         }
       }
 
-      return new Reduced(res.body, res.params, args);
+      var paramsList = [];
+      var argsList = [];
+      var _iteratorNormalCompletion2 = true;
+      var _didIteratorError2 = false;
+      var _iteratorError2 = undefined;
+
+      try {
+        for (var _iterator2 = res.params[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+          var s = _step2.value;
+
+          if (s.startsWith('@')) {
+            paramsList.push(s);
+            argsList.push(args.shift());
+            paramsList.push(new IronSymbol('@#' + s.symbol.slice(1)));
+            argsList.push(argStrs.shift());
+          }
+        }
+
+        //console.log ('\n\n\ndebug: \n----------\n\n\n', inspect(res), '\n\n\n', inspect(cell), '\n\n\n', varvec, '\n\n\n', inspect(env));
+        //let scope = new Env (Cell.list(res.params), Cell.list(args), env);
+        //console.log('debug: \n' +inspect(scope));
+      } catch (err) {
+        _didIteratorError2 = true;
+        _iteratorError2 = err;
+      } finally {
+        try {
+          if (!_iteratorNormalCompletion2 && _iterator2.return) {
+            _iterator2.return();
+          }
+        } finally {
+          if (_didIteratorError2) {
+            throw _iteratorError2;
+          }
+        }
+      }
+
+      return new Reduced(res.body, paramsList, argsList);
     }
   }]);
   return Rho;
