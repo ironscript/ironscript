@@ -4669,7 +4669,7 @@ var Env = function () {
       var keystr = key.symbol;
       if (this.map.has(keystr)) ret = this.map.get(keystr);else if (this.par !== null) ret = this.par.get(key);else ret = key;
 
-      if (ret instanceof Function) return ret;else if (ret instanceof Object) return Object.assign({}, ret);
+      if (ret instanceof Function) return ret;else if (ret instanceof Object && ret.__itype__ === 'stream') return ret;else if (ret instanceof Object) return Object.assign({}, ret);
       return ret;
     }
   }, {
@@ -4690,9 +4690,85 @@ var Env = function () {
     value: function getc(key) {
       if (this.constTable.has(key)) return this.constTable.get(key);else if (this.par !== null) return this.par.getc(key);else return null;
     }
+  }], [{
+    key: 'clone',
+    value: function clone(env) {
+      var e = new Env(null, null, env.par);
+      e.map = env.map;
+      e.rho = env.rho;
+      e.constTable = env.constTable;
+      return e;
+    }
   }]);
   return Env;
 }();
+
+/**
+ * Copyright (c) 2016 Ganesh Prasad Sahoo (GnsP)
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy 
+ * of this software and associated documentation files (the "Software"), to deal 
+ * in the Software without restriction, including without limitation the rights 
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
+ * copies of the Software, and to permit persons to whom the Software is 
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in 
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+ * SOFTWARE.
+ *
+ */
+
+var Stream = function Stream(core, env) {
+  var _this = this;
+
+  classCallCheck(this, Stream);
+
+  this.__itype__ = 'stream';
+  this.env = env;
+  this.core = core;
+  this.value = undefined;
+
+  this.callbacks = [];
+  this.addcb = function (cb) {
+    _this.callbacks.push(cb);
+  };
+
+  nextTick(this.core, function (val) {
+    _this.value = val;
+    var _iteratorNormalCompletion = true;
+    var _didIteratorError = false;
+    var _iteratorError = undefined;
+
+    try {
+      for (var _iterator = _this.callbacks[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+        var cb = _step.value;
+
+        nextTick(cb, null, _this.env, null, val);
+      }
+    } catch (err) {
+      _didIteratorError = true;
+      _iteratorError = err;
+    } finally {
+      try {
+        if (!_iteratorNormalCompletion && _iterator.return) {
+          _iterator.return();
+        }
+      } finally {
+        if (_didIteratorError) {
+          throw _iteratorError;
+        }
+      }
+    }
+  });
+};
 
 /**
  * Copyright (c) 2016 Ganesh Prasad Sahoo (GnsP)
@@ -4737,8 +4813,10 @@ var _map_ = new IronSymbol('_map_');
 var _get = new IronSymbol('_get');
 var _set = new IronSymbol('_set');
 var _push = new IronSymbol('_push');
+var _pull = new IronSymbol('_pull');
 var _stream = new IronSymbol('_stream');
 var _do = new IronSymbol('_do');
+var _on = new IronSymbol('_on');
 var _include = new IronSymbol('_include');
 var _import = new IronSymbol('_import');
 
@@ -4772,7 +4850,7 @@ function evalAsync(x, env) {
       var val = x.cdr.cdr.car;
       nextTick(evalAsync, val, env, function (err, _env, _, value) {
         var sts = env.bind(name, value);
-        if (!sts) nextTick(cb, 'can _def only inside a _begin block');else nextTick(cb, null, env, null, true);
+        if (!sts) nextTick(cb, 'can _def only inside a _begin block');else nextTick(cb, null, env, null, value);
       });
     })();
   } else if (_assign_unsafe.equal(x.car)) {
@@ -4781,7 +4859,7 @@ function evalAsync(x, env) {
       var val = x.cdr.cdr.car;
       nextTick(evalAsync, val, env, function (err, _env, _, value) {
         var sts = env.find(name).bind(name, value);
-        if (!sts) nextTick(cb, 'can _def only inside a _begin block');else nextTick(cb, null, env, null, true);
+        if (!sts) nextTick(cb, 'can _def only inside a _begin block');else nextTick(cb, null, env, null, value);
       });
     })();
   } else if (_get.equal(x.car)) {
@@ -4911,21 +4989,39 @@ function evalAsync(x, env) {
       var func = x.cdr.car;
       var args = x.cdr.cdr;
 
-      var argvals = [];
+      //let argvals = [];
       var arglist = [];
+      //let argflags = [];
+      //let argcount = 0;
       while (args instanceof Cell) {
-        argvals.push(undefined);
+        //argvals.push (null);
+        //argflags.push(false);
         arglist.push(args.car);
         args = args.cdr;
       }
+      //argcount = argflags.length;
 
       nextTick(evalAsync, func, env, function (err, _env, _, func) {
 
-        var stream = function stream(err, __env, cb, _) {
+        var corefn = function corefn(updatefn) {
+          var argvals = Array(arglist.length);
+          var argflags = [];
+          var argcount = arglist.length;
+
           var _loop = function _loop(i) {
+            argflags.push(false);
             nextTick(evalAsync, arglist[i], env, function (err, _env, _, argval) {
-              argvals[i] = argval;
-              nextTick.apply(undefined, [func, err, env, cb].concat(argvals));
+              if (argval !== null && argval !== undefined) {
+                //debugger;
+                argvals[i] = argval;
+                if (!argflags[i]) {
+                  argflags[i] = true;
+                  argcount--;
+                }
+              }
+              if (argcount === 0) nextTick.apply(undefined, [func, err, env, function (err, _env, _cb, retval) {
+                nextTick(updatefn, retval);
+              }].concat(toConsumableArray(argvals)));
             });
           };
 
@@ -4934,13 +5030,35 @@ function evalAsync(x, env) {
           }
         };
 
+        nextTick(cb, err, env, null, new Stream(corefn, env));
+      });
+    })();
+  } else if (_on.equal(x.car)) {
+    (function () {
+      var controlStream = x.cdr.car;
+      var expr = x.cdr.cdr.car;
+
+      nextTick(evalAsync, controlStream, env, function (err, _env, _, cs) {
+        var corefn = function corefn(updatefn) {
+          cs.addcb(function (err, _env, _cb, val) {
+            nextTick(evalAsync, expr, env, function (err, _env, _, val) {
+              nextTick(updatefn, val);
+            });
+          });
+        };
+        var stream = new Stream(corefn, env);
         nextTick(cb, err, env, null, stream);
       });
     })();
-  } else if (_do.equal(x.car)) {
+  } else if (_pull.equal(x.car)) {
     var stream = x.cdr.car;
-    nextTick(evalAsync, stream, env, function (err, _env, _, streamfn) {
-      nextTick(streamfn, err, env, function (err) {
+    nextTick(evalAsync, stream, env, function (err, _env, _, s) {
+      if (s instanceof Object && s.__itype__ === 'stream') nextTick(cb, null, env, null, s.value);else nextTick(cb, new IError("can pull only from streams"));
+    });
+  } else if (_do.equal(x.car)) {
+    var _stream2 = x.cdr.car;
+    nextTick(evalAsync, _stream2, env, function (err, _env, _, streamObj) {
+      streamObj.addcb(function (err) {
         if (err) throw err;
       });
     });
@@ -5002,6 +5120,9 @@ function evalAsync(x, env) {
             })();
           }
         })();
+      } else if (func instanceof Object && func.__itype__ === 'stream') {
+        func.addcb(cb);
+        nextTick(cb, err, env, null, func.value);
       } else if (func instanceof Function) {
         var _args = [];
         while (x.cdr instanceof Cell) {
@@ -5049,6 +5170,8 @@ function evalAsync(x, env) {
  */
 
 function fn(params, body, env) {
+  var closureEnv = Env.clone(env);
+  if (env.syncLock) closureEnv.sync();
   return function (err, _env, cb) {
     if (err) cb(err);
     //console.log (body ,'\n\n\n' ,params,'\n\n\n',args,'\n\n\n');
@@ -5058,7 +5181,7 @@ function fn(params, body, env) {
       args[_key - 3] = arguments[_key];
     }
 
-    nextTick(evalAsync, body, new Env(params, Cell.list(args), env), cb);
+    nextTick(evalAsync, body, new Env(params, Cell.list(args), closureEnv), cb);
   };
 }
 

@@ -6,7 +6,7 @@
 
 _begin
   ( @{
-    console.log(vdom.message);  
+    console.log(vdom);  
   }@ )
 
   (_include "stdlib")

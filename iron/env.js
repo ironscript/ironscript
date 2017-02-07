@@ -40,6 +40,14 @@ export default class Env {
     this.rho = new Rho(this);
     this.constTable = new Map();
   }
+  
+  static clone (env) {
+    let e = new Env(null, null, env.par);
+    e.map = env.map;
+    e.rho = env.rho;
+    e.constTable = env.constTable;
+    return e;
+  }
 
   sync () {
     this.syncLock = true;
@@ -92,6 +100,7 @@ export default class Env {
     else ret = key;
     
     if (ret instanceof Function) return ret;
+    else if (ret instanceof Object && ret.__itype__ === 'stream') return ret;
     else if (ret instanceof Object) return Object.assign({}, ret);
     return ret;
   }
@@ -114,4 +123,3 @@ export default class Env {
   }
 
 }
-
