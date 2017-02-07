@@ -1,2 +1,3 @@
 _sync
-  (_include "./_stdlib/operators")
+  (_include "_stdlib/operators")
+  (_include "_stdlib/streams")
