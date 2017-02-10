@@ -264,12 +264,18 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
         for (let i=0; i<arglist.length; i++) {
           argflags.push(false);
           nextTick (evalAsync, arglist[i], env, (err, _env, _, argval) => {
+            argvals[i] = argval;
             if (argval !== null && argval !== undefined) {
               //debugger;
-              argvals[i] = argval;
               if (!argflags[i]) {
                 argflags[i] = true;
                 argcount--;
+              }
+            }
+            else {
+              if (argflags[i]) {
+                argflags[i] = false;
+                argcount++;
               }
             }
             if (argcount === 0) nextTick (func, err, env, (err, _env, _cb, retval) => {
@@ -291,7 +297,8 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
       let corefn = (updatefn) => {
         cs.addcb((err, _env, _cb, val) => {
           nextTick (evalAsync, expr, env, (err, _env, _, val) => {
-            nextTick (updatefn, val);
+            if (val !== null && val !== undefined)
+              nextTick (updatefn, val);
           });
         });
       };
@@ -304,7 +311,9 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
     nextTick (evalAsync, stream, env, (err, _env, _, s) => {
       if (s instanceof Object && s.__itype__==='stream')
         nextTick (cb, null, env, null, s.value);
-      else nextTick (cb, new IError("can pull only from streams"));
+      else if (s instanceof Array)
+        nextTick (cb, null, env, null, s.shift());
+      else nextTick (cb, new IError("can pull from streams and arrays only"));
     });
   }
   else if (_do.equal(x.car)) {

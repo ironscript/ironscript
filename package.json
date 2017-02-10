@@ -6,7 +6,8 @@
   "scripts": {
     "test": "./dist/node/ironscript.js ./test/test.is",
     "build": "npm run clean && npm run build-node && npm run build-browser && npm run build-bundler",
-    "build-node": "rollup -c ./rollup.node.config.js && echo \"#!/usr/bin/env node \n \" | cat - ./dist/node/ironscript.js > ./dist/node/tmpfile && mv ./dist/node/tmpfile ./dist/node/ironscript.js && chmod +x ./dist/node/ironscript.js && cp -R ./include/* ./dist/node/include",
+    "build-node": "rollup -c ./rollup.node.config.js && echo \"#!/usr/bin/env node \n \" | cat - ./dist/node/ironscript.js > ./dist/node/tmpfile && mv ./dist/node/tmpfile ./dist/node/ironscript.js && chmod +x ./dist/node/ironscript.js && npm run build-include",
+    "build-include": "cp -R ./include/* ./dist/node/include",
     "clean": "rm -rf ./dist/node/* && rm -rf ./dist/browser/* && mkdir ./dist/node/include",
     "build-browser": "rollup -c rollup.browser.config.js",
     "build-bundler": "rollup -c rollup.bundler.config.js && echo \"#!/usr/bin/env node \n \" | cat - ./dist/bundler/ibun.js > ./dist/bundler/tmpfile && mv ./dist/bundler/tmpfile ./dist/bundler/ibun.js && chmod +x ./dist/bundler/ibun.js"

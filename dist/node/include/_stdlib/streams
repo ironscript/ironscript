@@ -9,6 +9,48 @@ _sync
 
   (_def log-stream (_fn (stream stream-name) (_stream concat stream-name " :: " (stream) ) ) )
   (_def echo-stream (_fn (stream) (_stream _echo (stream) ) ) )
-  (_rho '(debug log stream on console @s) (_do (echo-stream (log-stream @s @#s) ) ) )
+  (_rho '(debug log stream on console @s) (_do (echo-stream (_stream concat "debug>>> " ((log-stream @s @#s)) ) ) ) )
 
-  
+  (_def count-stream (_fn (stream)
+    (_stream
+      
+      (_begin
+        (_def counter (_fn () 
+          (_begin
+            (_def c 0)
+            (_fn (x) 
+              (_if x 
+                (_assign! c (+ c 1) ) 
+                () 
+              ) 
+            )
+          )             
+        ) )
+        (counter)
+      )
+
+      (stream)
+    )
+  ) )
+
+  (_def max-stream (_fn (stream)
+    (_stream
+      
+      (_begin
+        (_def maxer (_fn () 
+          (_begin
+            (_def m 0)
+            (_fn (x) 
+              (_if (> x m) 
+                (_assign! m x ) 
+                m 
+              ) 
+            )
+          )             
+        ) )
+        (maxer)
+      )
+
+      (stream)
+    )
+  ) )
