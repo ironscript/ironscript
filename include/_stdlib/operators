@@ -1,0 +1,51 @@
+; Copyright (c) 2016, Ganesh Prasad Sahoo <sir.gnsp@gmail.com>
+ 
+; IRONSCRIPT Standard Library (Operators.is)
+; Implements the most used javascript operators for use in ironscript.
+; Prefer _include at global-scope over _import in case of stdlib files.
+
+_sync
+  
+  (_def + @{ $return (args[0]+args[1]); }@ )
+  (_def - @{ $return (args[0]-args[1]); }@ )
+  (_def * @{ $return (args[0]*args[1]); }@ )
+  (_def / @{ $return (args[0]/args[1]); }@ )
+  (_def % @{ $return (args[0]%args[1]); }@ )
+  
+  (_def == @{ $return (args[0]==args[1]); }@ )
+  (_def != @{ $return (args[0]!=args[1]); }@ )
+  (_def === @{ $return (args[0]===args[1]); }@ )
+  (_def !== @{ $return (args[0]!==args[1]); }@ )
+
+  (_def > @{ $return (args[0]>args[1]); }@ )
+  (_def < @{ $return (args[0]<args[1]); }@ )
+  (_def >= @{ $return (args[0]>=args[1]); }@ )
+  (_def <= @{ $return (args[0]<=args[1]); }@ )
+
+  (_def && @{ $return (args[0]&&args[1]); }@ )
+  (_def || @{ $return (args[0]||args[1]); }@ )
+
+  (_def concat @{ 
+    let s = '';
+    for (let arg of args) s += arg;
+    $return (s);
+   }@ )
+
+  (_rho '(@a + @b) (+ @a @b))
+  (_rho '(@a - @b) (- @a @b))
+  (_rho '(@a * @b) (* @a @b))
+  (_rho '(@a / @b) (/ @a @b))
+  (_rho '(@a % @b) (% @a @b))
+
+  (_rho '(@a == @b) (== @a @b))
+  (_rho '(@a != @b) (!= @a @b))
+  (_rho '(@a === @b) (=== @a @b))
+  (_rho '(@a !== @b) (!== @a @b))
+  
+  (_rho '(@a > @b) (> @a @b))
+  (_rho '(@a < @b) (< @a @b))
+  (_rho '(@a >= @b) (>= @a @b))
+  (_rho '(@a <= @b) (<= @a @b))
+  
+  (_rho '(@a && @b) (&& @a @b))
+  (_rho '(@a || @b) (|| @a @b))

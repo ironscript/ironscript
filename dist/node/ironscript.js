@@ -5,730 +5,6 @@
 var fs = require('fs');
 var path = require('path');
 
-var asyncGenerator = function () {
-  function AwaitValue(value) {
-    this.value = value;
-  }
-
-  function AsyncGenerator(gen) {
-    var front, back;
-
-    function send(key, arg) {
-      return new Promise(function (resolve, reject) {
-        var request = {
-          key: key,
-          arg: arg,
-          resolve: resolve,
-          reject: reject,
-          next: null
-        };
-
-        if (back) {
-          back = back.next = request;
-        } else {
-          front = back = request;
-          resume(key, arg);
-        }
-      });
-    }
-
-    function resume(key, arg) {
-      try {
-        var result = gen[key](arg);
-        var value = result.value;
-
-        if (value instanceof AwaitValue) {
-          Promise.resolve(value.value).then(function (arg) {
-            resume("next", arg);
-          }, function (arg) {
-            resume("throw", arg);
-          });
-        } else {
-          settle(result.done ? "return" : "normal", result.value);
-        }
-      } catch (err) {
-        settle("throw", err);
-      }
-    }
-
-    function settle(type, value) {
-      switch (type) {
-        case "return":
-          front.resolve({
-            value: value,
-            done: true
-          });
-          break;
-
-        case "throw":
-          front.reject(value);
-          break;
-
-        default:
-          front.resolve({
-            value: value,
-            done: false
-          });
-          break;
-      }
-
-      front = front.next;
-
-      if (front) {
-        resume(front.key, front.arg);
-      } else {
-        back = null;
-      }
-    }
-
-    this._invoke = send;
-
-    if (typeof gen.return !== "function") {
-      this.return = undefined;
-    }
-  }
-
-  if (typeof Symbol === "function" && Symbol.asyncIterator) {
-    AsyncGenerator.prototype[Symbol.asyncIterator] = function () {
-      return this;
-    };
-  }
-
-  AsyncGenerator.prototype.next = function (arg) {
-    return this._invoke("next", arg);
-  };
-
-  AsyncGenerator.prototype.throw = function (arg) {
-    return this._invoke("throw", arg);
-  };
-
-  AsyncGenerator.prototype.return = function (arg) {
-    return this._invoke("return", arg);
-  };
-
-  return {
-    wrap: function (fn) {
-      return function () {
-        return new AsyncGenerator(fn.apply(this, arguments));
-      };
-    },
-    await: function (value) {
-      return new AwaitValue(value);
-    }
-  };
-}();
-
-
-
-
-
-var classCallCheck = function (instance, Constructor) {
-  if (!(instance instanceof Constructor)) {
-    throw new TypeError("Cannot call a class as a function");
-  }
-};
-
-var createClass = function () {
-  function defineProperties(target, props) {
-    for (var i = 0; i < props.length; i++) {
-      var descriptor = props[i];
-      descriptor.enumerable = descriptor.enumerable || false;
-      descriptor.configurable = true;
-      if ("value" in descriptor) descriptor.writable = true;
-      Object.defineProperty(target, descriptor.key, descriptor);
-    }
-  }
-
-  return function (Constructor, protoProps, staticProps) {
-    if (protoProps) defineProperties(Constructor.prototype, protoProps);
-    if (staticProps) defineProperties(Constructor, staticProps);
-    return Constructor;
-  };
-}();
-
-
-
-
-
-
-
-var get$1 = function get$1(object, property, receiver) {
-  if (object === null) object = Function.prototype;
-  var desc = Object.getOwnPropertyDescriptor(object, property);
-
-  if (desc === undefined) {
-    var parent = Object.getPrototypeOf(object);
-
-    if (parent === null) {
-      return undefined;
-    } else {
-      return get$1(parent, property, receiver);
-    }
-  } else if ("value" in desc) {
-    return desc.value;
-  } else {
-    var getter = desc.get;
-
-    if (getter === undefined) {
-      return undefined;
-    }
-
-    return getter.call(receiver);
-  }
-};
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-var set = function set(object, property, value, receiver) {
-  var desc = Object.getOwnPropertyDescriptor(object, property);
-
-  if (desc === undefined) {
-    var parent = Object.getPrototypeOf(object);
-
-    if (parent !== null) {
-      set(parent, property, value, receiver);
-    }
-  } else if ("value" in desc && desc.writable) {
-    desc.value = value;
-  } else {
-    var setter = desc.set;
-
-    if (setter !== undefined) {
-      setter.call(receiver, value);
-    }
-  }
-
-  return value;
-};
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-var toConsumableArray = function (arr) {
-  if (Array.isArray(arr)) {
-    for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) arr2[i] = arr[i];
-
-    return arr2;
-  } else {
-    return Array.from(arr);
-  }
-};
-
-/**
- * Copyright (c) 2016 Ganesh Prasad Sahoo (GnsP)
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy 
- * of this software and associated documentation files (the "Software"), to deal 
- * in the Software without restriction, including without limitation the rights 
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
- * copies of the Software, and to permit persons to whom the Software is 
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in 
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
- * SOFTWARE.
- *
- */
-
-var Cell = function () {
-  function Cell(val) {
-    classCallCheck(this, Cell);
-
-    this.car = val;
-    this.cdr = null;
-  }
-
-  createClass(Cell, null, [{
-    key: 'cons',
-    value: function cons(atom, cell) {
-      var c = new Cell(atom);
-      c.cdr = cell;
-      return c;
-    }
-  }, {
-    key: 'list',
-    value: function list(arr) {
-      var root = null;
-      var flag = false;
-      var cur = void 0;
-      var _iteratorNormalCompletion = true;
-      var _didIteratorError = false;
-      var _iteratorError = undefined;
-
-      try {
-        for (var _iterator = arr[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
-          var val = _step.value;
-
-          if (!flag) {
-            root = new Cell(val);
-            flag = true;
-            cur = root;
-          } else {
-            cur.cdr = new Cell(val);
-            cur = cur.cdr;
-          }
-        }
-      } catch (err) {
-        _didIteratorError = true;
-        _iteratorError = err;
-      } finally {
-        try {
-          if (!_iteratorNormalCompletion && _iterator.return) {
-            _iterator.return();
-          }
-        } finally {
-          if (_didIteratorError) {
-            throw _iteratorError;
-          }
-        }
-      }
-
-      return root;
-    }
-  }, {
-    key: 'printList',
-    value: function printList(cell) {
-      var str = '( ';
-      while (cell.cdr != null) {
-        str += Cell.printAtom(cell.car);
-        str += " ";
-        cell = cell.cdr;
-      }
-      str += Cell.printAtom(cell.car);
-      str += ' ) ';
-      return str;
-    }
-  }, {
-    key: 'printAtom',
-    value: function printAtom(cell) {
-      if (cell instanceof Cell) return Cell.printList(cell);else if (cell instanceof Object && cell.type === "ironsymbol") return cell.symbol;else return '' + cell;
-    }
-  }]);
-  return Cell;
-}();
-
-/**
- * Copyright (c) 2016 Ganesh Prasad Sahoo (GnsP)
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy 
- * of this software and associated documentation files (the "Software"), to deal 
- * in the Software without restriction, including without limitation the rights 
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
- * copies of the Software, and to permit persons to whom the Software is 
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in 
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
- * SOFTWARE.
- *
- */
-
-function ensure(pred, msg) {
-  if (!pred) {
-    console.log(msg);
-    throw new Error(msg);
-  }
-}
-
-/**
- * Copyright (c) 2016 Ganesh Prasad Sahoo (GnsP)
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy 
- * of this software and associated documentation files (the "Software"), to deal 
- * in the Software without restriction, including without limitation the rights 
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
- * copies of the Software, and to permit persons to whom the Software is 
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in 
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
- * SOFTWARE.
- *
- */
-
-var IronSymbol = function () {
-  function IronSymbol(str) {
-    classCallCheck(this, IronSymbol);
-
-    this.symbol = str;
-    this.type = 'ironsymbol';
-  }
-
-  createClass(IronSymbol, [{
-    key: 'equal',
-    value: function equal(sym) {
-      if (!sym instanceof IronSymbol) return false;
-      return sym.symbol === this.symbol;
-    }
-  }, {
-    key: 'startsWith',
-    value: function startsWith(ch) {
-      return this.symbol.startsWith(ch);
-    }
-  }]);
-  return IronSymbol;
-}();
-
-/**
- * Copyright (c) 2016 Ganesh Prasad Sahoo (GnsP)
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy 
- * of this software and associated documentation files (the "Software"), to deal 
- * in the Software without restriction, including without limitation the rights 
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
- * copies of the Software, and to permit persons to whom the Software is 
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in 
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
- * SOFTWARE.
- *
- */
-
-var IError = function () {
-  function IError(message) {
-    classCallCheck(this, IError);
-
-    this.message = message;
-  }
-
-  createClass(IError, [{
-    key: "log",
-    value: function log() {
-      console.log(this.message);
-    }
-  }]);
-  return IError;
-}();
-
-/**
- * Copyright (c) 2016 Ganesh Prasad Sahoo (GnsP)
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy 
- * of this software and associated documentation files (the "Software"), to deal 
- * in the Software without restriction, including without limitation the rights 
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
- * copies of the Software, and to permit persons to whom the Software is 
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in 
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
- * SOFTWARE.
- *
- */
-
-//import {inspect} from 'util';
-
-var _ANY = new IronSymbol('__internal (any)');
-
-var RhoState = function () {
-  function RhoState() {
-    classCallCheck(this, RhoState);
-
-    this.table = new Map();
-    this.finalPointer = null;
-  }
-
-  createClass(RhoState, [{
-    key: 'accept',
-    value: function accept(sym, varvec) {
-      if (sym instanceof Cell) return new IError('[RHO INTERNAL] Expected an atomic value; got a LIST: ' + sym);
-
-      var s = sym;
-      if (sym.startsWith('@')) {
-        varvec.push(sym);
-        s = _ANY;
-      }
-      if (!this.table.has(s.symbol)) this.table.set(s.symbol, new RhoState());
-      //console.log(this.table.get(s.symbol));
-      return this.table.get(s.symbol);
-    }
-  }, {
-    key: 'find',
-    value: function find(sym, varvec) {
-      if (this.table.has(sym.symbol)) return this.table.get(sym.symbol);else if (this.table.has(_ANY.symbol)) {
-        varvec.push(sym);
-        //console.log ('\n\n\nvarvec -----', varvec);
-        return this.table.get(_ANY.symbol);
-      } else return null;
-    }
-  }, {
-    key: 'makeFinal',
-    value: function makeFinal(num) {
-      this.finalPointer = num;
-    }
-  }]);
-  return RhoState;
-}();
-
-var Resolution = function Resolution(params, body) {
-  classCallCheck(this, Resolution);
-
-  this.params = params;
-  this.body = body;
-};
-
-var Reduced = function Reduced(body, params, args) {
-  classCallCheck(this, Reduced);
-
-  this.body = body;
-  this.params = params;
-  this.args = args;
-};
-
-var Rho = function () {
-  function Rho(par) {
-    classCallCheck(this, Rho);
-
-    this.initialState = new RhoState();
-    this.resolutionVector = [];
-    this.size = 0;
-    this.env = par;
-  }
-
-  createClass(Rho, [{
-    key: 'accept',
-    value: function accept(pattern, resolutionBody) {
-      if (!this.env.syncLock) return new IError('[RHO INTERNAL] can define rewrite rules only inside a _sync block');
-      var varvec = [];
-      var state = this.initialState;
-      var pcell = pattern;
-      //console.log ('\n\n\ndebug-rho-pattern: \n-------\n', inspect(pattern));
-      while (pcell instanceof Cell) {
-        //console.log ('\n\n\ndebug: \n-------\n', inspect(state));
-        state = state.accept(pcell.car, varvec);
-        if (state instanceof IError) return state;
-        pcell = pcell.cdr;
-      }
-
-      //console.log('debug: ',varvec);
-      this.resolutionVector.push(new Resolution(varvec, resolutionBody));
-      state.makeFinal(this.size);
-      this.size++;
-      return true;
-    }
-  }, {
-    key: 'find',
-    value: function find(cell) {
-      var state = this.initialState;
-      var acell = cell;
-      var varvec = [];
-
-      while (acell instanceof Cell) {
-        state = state.find(acell.car, varvec);
-        if (state === null) break;
-        acell = acell.cdr;
-      }
-      if (state === null || state.finalPointer === null) {
-        varvec = [];
-        if (this.env.par !== null) {
-          //console.log ('\n\nSEARCHING PARENT ... ... ...\n\n');
-          //console.log ('\n\n\nvarvec ==== ', varvec);
-          var r = this.env.par.rho.find(cell);
-          //console.log ('\n\n\nvarvec ===== ', varvec);
-          return r;
-        } else return [null, []];
-      }
-      //console.log (inspect (this.resolutionVector [state.finalPointer]));
-      //console.log ('\n\n\nvarvec ******* ', varvec);
-      return [this.resolutionVector[state.finalPointer], varvec];
-    }
-  }, {
-    key: 'reduce',
-    value: function reduce(cell, env) {
-      var res = void 0,
-          varvec = void 0;
-      //console.log ('\n\n\n#############################\n\n\n', varvec);
-      var r = this.find(cell, varvec);
-      //console.log(r);
-      res = r[0];
-      if (res === null) return null;
-
-      varvec = r[1];
-      var args = [];
-      var _iteratorNormalCompletion = true;
-      var _didIteratorError = false;
-      var _iteratorError = undefined;
-
-      try {
-        for (var _iterator = varvec[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
-          var v = _step.value;
-
-          if (v instanceof IronSymbol) args.push(env.get(v));else args.push(v);
-        }
-        //console.log ('\n\n\ndebug: \n----------\n\n\n', inspect(res), '\n\n\n', inspect(cell), '\n\n\n', varvec, '\n\n\n', inspect(env));
-        //let scope = new Env (Cell.list(res.params), Cell.list(args), env);
-        //console.log('debug: \n' +inspect(scope));
-      } catch (err) {
-        _didIteratorError = true;
-        _iteratorError = err;
-      } finally {
-        try {
-          if (!_iteratorNormalCompletion && _iterator.return) {
-            _iterator.return();
-          }
-        } finally {
-          if (_didIteratorError) {
-            throw _iteratorError;
-          }
-        }
-      }
-
-      return new Reduced(res.body, res.params, args);
-    }
-  }]);
-  return Rho;
-}();
-
-/**
- * Copyright (c) 2016 Ganesh Prasad Sahoo (GnsP)
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy 
- * of this software and associated documentation files (the "Software"), to deal 
- * in the Software without restriction, including without limitation the rights 
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
- * copies of the Software, and to permit persons to whom the Software is 
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in 
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
- * SOFTWARE.
- *
- */
-
-//import {inspect} from 'util';
-
-var Env = function () {
-  function Env(param, arg, par) {
-    classCallCheck(this, Env);
-
-    this.__itype__ = "env";
-    this.map = new Map();
-    this.par = par;
-    this.syncLock = true;
-    this.bind(param, arg);
-    this.syncLock = false;
-    this.rho = new Rho(this);
-  }
-
-  createClass(Env, [{
-    key: 'sync',
-    value: function sync() {
-      this.syncLock = true;
-    }
-  }, {
-    key: 'unsync',
-    value: function unsync() {
-      this.syncLock = false;
-    }
-  }, {
-    key: 'bind',
-    value: function bind(key, val) {
-      if (!this.syncLock) return false;
-      while (key instanceof Cell) {
-        //console.log ('debug: ',inspect(key), inspect(val));
-        ensure(val instanceof Cell, "can not bind a List to an Atom");
-        this.bind(key.car, val.car);
-        key = key.cdr;
-        val = val.cdr;
-      }
-      if (key !== null) {
-        ensure(key instanceof IronSymbol, "" + key + " is not an IronSymbol");
-        var keystr = key.symbol;
-        this.map.set(keystr, val);
-      }
-      return true;
-    }
-  }, {
-    key: 'find',
-    value: function find(key) {
-      ensure(key instanceof IronSymbol, "" + key + " is not an IronSymbol");
-      var keystr = key.symbol;
-      if (this.map.has(keystr)) return this;
-      return this.par.find(key);
-    }
-  }, {
-    key: 'get',
-    value: function get(key) {
-      ensure(key instanceof IronSymbol, "" + key + " is not an IronSymbol");
-      var ret = void 0;
-      var keystr = key.symbol;
-      if (this.map.has(keystr)) ret = this.map.get(keystr);else if (this.par !== null) ret = this.par.get(key);else ret = key;
-
-      if (ret instanceof Function) return ret;else if (ret instanceof Object) return Object.assign({}, ret);
-      return ret;
-    }
-  }]);
-  return Env;
-}();
-
 /**
  * This method returns the first argument it receives.
  *
@@ -1101,7 +377,7 @@ function getNative(object, key) {
   return baseIsNative(value) ? value : undefined;
 }
 
-var defineProperty$1 = (function() {
+var defineProperty = (function() {
   try {
     var func = getNative(Object, 'defineProperty');
     func({}, '', {});
@@ -1117,8 +393,8 @@ var defineProperty$1 = (function() {
  * @param {Function} string The `toString` result.
  * @returns {Function} Returns `func`.
  */
-var baseSetToString = !defineProperty$1 ? identity : function(func, string) {
-  return defineProperty$1(func, 'toString', {
+var baseSetToString = !defineProperty ? identity : function(func, string) {
+  return defineProperty(func, 'toString', {
     'configurable': true,
     'enumerable': false,
     'value': constant(string),
@@ -4664,6 +3940,876 @@ function whilst(test, iteratee, callback) {
   * @module Utils
   */
 
+var asyncGenerator = function () {
+  function AwaitValue(value) {
+    this.value = value;
+  }
+
+  function AsyncGenerator(gen) {
+    var front, back;
+
+    function send(key, arg) {
+      return new Promise(function (resolve, reject) {
+        var request = {
+          key: key,
+          arg: arg,
+          resolve: resolve,
+          reject: reject,
+          next: null
+        };
+
+        if (back) {
+          back = back.next = request;
+        } else {
+          front = back = request;
+          resume(key, arg);
+        }
+      });
+    }
+
+    function resume(key, arg) {
+      try {
+        var result = gen[key](arg);
+        var value = result.value;
+
+        if (value instanceof AwaitValue) {
+          Promise.resolve(value.value).then(function (arg) {
+            resume("next", arg);
+          }, function (arg) {
+            resume("throw", arg);
+          });
+        } else {
+          settle(result.done ? "return" : "normal", result.value);
+        }
+      } catch (err) {
+        settle("throw", err);
+      }
+    }
+
+    function settle(type, value) {
+      switch (type) {
+        case "return":
+          front.resolve({
+            value: value,
+            done: true
+          });
+          break;
+
+        case "throw":
+          front.reject(value);
+          break;
+
+        default:
+          front.resolve({
+            value: value,
+            done: false
+          });
+          break;
+      }
+
+      front = front.next;
+
+      if (front) {
+        resume(front.key, front.arg);
+      } else {
+        back = null;
+      }
+    }
+
+    this._invoke = send;
+
+    if (typeof gen.return !== "function") {
+      this.return = undefined;
+    }
+  }
+
+  if (typeof Symbol === "function" && Symbol.asyncIterator) {
+    AsyncGenerator.prototype[Symbol.asyncIterator] = function () {
+      return this;
+    };
+  }
+
+  AsyncGenerator.prototype.next = function (arg) {
+    return this._invoke("next", arg);
+  };
+
+  AsyncGenerator.prototype.throw = function (arg) {
+    return this._invoke("throw", arg);
+  };
+
+  AsyncGenerator.prototype.return = function (arg) {
+    return this._invoke("return", arg);
+  };
+
+  return {
+    wrap: function (fn) {
+      return function () {
+        return new AsyncGenerator(fn.apply(this, arguments));
+      };
+    },
+    await: function (value) {
+      return new AwaitValue(value);
+    }
+  };
+}();
+
+
+
+
+
+var classCallCheck = function (instance, Constructor) {
+  if (!(instance instanceof Constructor)) {
+    throw new TypeError("Cannot call a class as a function");
+  }
+};
+
+var createClass = function () {
+  function defineProperties(target, props) {
+    for (var i = 0; i < props.length; i++) {
+      var descriptor = props[i];
+      descriptor.enumerable = descriptor.enumerable || false;
+      descriptor.configurable = true;
+      if ("value" in descriptor) descriptor.writable = true;
+      Object.defineProperty(target, descriptor.key, descriptor);
+    }
+  }
+
+  return function (Constructor, protoProps, staticProps) {
+    if (protoProps) defineProperties(Constructor.prototype, protoProps);
+    if (staticProps) defineProperties(Constructor, staticProps);
+    return Constructor;
+  };
+}();
+
+
+
+
+
+
+
+var get$1 = function get$1(object, property, receiver) {
+  if (object === null) object = Function.prototype;
+  var desc = Object.getOwnPropertyDescriptor(object, property);
+
+  if (desc === undefined) {
+    var parent = Object.getPrototypeOf(object);
+
+    if (parent === null) {
+      return undefined;
+    } else {
+      return get$1(parent, property, receiver);
+    }
+  } else if ("value" in desc) {
+    return desc.value;
+  } else {
+    var getter = desc.get;
+
+    if (getter === undefined) {
+      return undefined;
+    }
+
+    return getter.call(receiver);
+  }
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var set = function set(object, property, value, receiver) {
+  var desc = Object.getOwnPropertyDescriptor(object, property);
+
+  if (desc === undefined) {
+    var parent = Object.getPrototypeOf(object);
+
+    if (parent !== null) {
+      set(parent, property, value, receiver);
+    }
+  } else if ("value" in desc && desc.writable) {
+    desc.value = value;
+  } else {
+    var setter = desc.set;
+
+    if (setter !== undefined) {
+      setter.call(receiver, value);
+    }
+  }
+
+  return value;
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var toConsumableArray = function (arr) {
+  if (Array.isArray(arr)) {
+    for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) arr2[i] = arr[i];
+
+    return arr2;
+  } else {
+    return Array.from(arr);
+  }
+};
+
+/**
+ * Copyright (c) 2016 Ganesh Prasad Sahoo (GnsP)
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy 
+ * of this software and associated documentation files (the "Software"), to deal 
+ * in the Software without restriction, including without limitation the rights 
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
+ * copies of the Software, and to permit persons to whom the Software is 
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in 
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+ * SOFTWARE.
+ *
+ */
+
+var Cell = function () {
+  function Cell(val) {
+    classCallCheck(this, Cell);
+
+    this.car = val;
+    this.cdr = null;
+  }
+
+  createClass(Cell, null, [{
+    key: 'cons',
+    value: function cons(atom, cell) {
+      var c = new Cell(atom);
+      c.cdr = cell;
+      return c;
+    }
+  }, {
+    key: 'list',
+    value: function list(arr) {
+      var root = null;
+      var flag = false;
+      var cur = void 0;
+      var _iteratorNormalCompletion = true;
+      var _didIteratorError = false;
+      var _iteratorError = undefined;
+
+      try {
+        for (var _iterator = arr[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+          var val = _step.value;
+
+          if (!flag) {
+            root = new Cell(val);
+            flag = true;
+            cur = root;
+          } else {
+            cur.cdr = new Cell(val);
+            cur = cur.cdr;
+          }
+        }
+      } catch (err) {
+        _didIteratorError = true;
+        _iteratorError = err;
+      } finally {
+        try {
+          if (!_iteratorNormalCompletion && _iterator.return) {
+            _iterator.return();
+          }
+        } finally {
+          if (_didIteratorError) {
+            throw _iteratorError;
+          }
+        }
+      }
+
+      return root;
+    }
+  }, {
+    key: 'printList',
+    value: function printList(cell) {
+      var str = '( ';
+      while (cell.cdr != null) {
+        str += Cell.printAtom(cell.car);
+        str += " ";
+        cell = cell.cdr;
+      }
+      str += Cell.printAtom(cell.car);
+      str += ' ) ';
+      return str;
+    }
+  }, {
+    key: 'printAtom',
+    value: function printAtom(cell) {
+      if (cell instanceof Cell) return Cell.printList(cell);else if (cell instanceof Object && cell.type === "ironsymbol") return cell.symbol;else return '' + cell;
+    }
+  }]);
+  return Cell;
+}();
+
+/**
+ * Copyright (c) 2016 Ganesh Prasad Sahoo (GnsP)
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy 
+ * of this software and associated documentation files (the "Software"), to deal 
+ * in the Software without restriction, including without limitation the rights 
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
+ * copies of the Software, and to permit persons to whom the Software is 
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in 
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+ * SOFTWARE.
+ *
+ */
+
+function ensure(pred, msg) {
+  if (!pred) {
+    console.log(msg);
+    throw new Error(msg);
+  }
+}
+
+/**
+ * Copyright (c) 2016 Ganesh Prasad Sahoo (GnsP)
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy 
+ * of this software and associated documentation files (the "Software"), to deal 
+ * in the Software without restriction, including without limitation the rights 
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
+ * copies of the Software, and to permit persons to whom the Software is 
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in 
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+ * SOFTWARE.
+ *
+ */
+
+var IronSymbol = function () {
+  function IronSymbol(str) {
+    classCallCheck(this, IronSymbol);
+
+    this.symbol = str;
+    this.type = 'ironsymbol';
+  }
+
+  createClass(IronSymbol, [{
+    key: 'equal',
+    value: function equal(sym) {
+      if (!sym instanceof IronSymbol) return false;
+      return sym.symbol === this.symbol;
+    }
+  }, {
+    key: 'startsWith',
+    value: function startsWith(ch) {
+      return this.symbol.startsWith(ch);
+    }
+  }]);
+  return IronSymbol;
+}();
+
+/**
+ * Copyright (c) 2016 Ganesh Prasad Sahoo (GnsP)
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy 
+ * of this software and associated documentation files (the "Software"), to deal 
+ * in the Software without restriction, including without limitation the rights 
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
+ * copies of the Software, and to permit persons to whom the Software is 
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in 
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+ * SOFTWARE.
+ *
+ */
+
+var IError = function () {
+  function IError(message) {
+    classCallCheck(this, IError);
+
+    this.message = message;
+  }
+
+  createClass(IError, [{
+    key: "log",
+    value: function log() {
+      console.log(this.message);
+    }
+  }]);
+  return IError;
+}();
+
+/**
+ * Copyright (c) 2016 Ganesh Prasad Sahoo (GnsP)
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy 
+ * of this software and associated documentation files (the "Software"), to deal 
+ * in the Software without restriction, including without limitation the rights 
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
+ * copies of the Software, and to permit persons to whom the Software is 
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in 
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+ * SOFTWARE.
+ *
+ */
+
+//import {inspect} from 'util';
+
+var _ANY = new IronSymbol('__internal (any)');
+
+var RhoState = function () {
+  function RhoState() {
+    classCallCheck(this, RhoState);
+
+    this.table = new Map();
+    this.finalPointer = null;
+  }
+
+  createClass(RhoState, [{
+    key: 'accept',
+    value: function accept(sym, varvec) {
+      if (sym instanceof Cell) return new IError('[RHO INTERNAL] Expected an atomic value; got a LIST: ' + sym);
+
+      var s = sym;
+      if (sym.startsWith('@')) {
+        varvec.push(sym);
+        s = _ANY;
+      }
+      if (!this.table.has(s.symbol)) this.table.set(s.symbol, new RhoState());
+      //console.log(this.table.get(s.symbol));
+      return this.table.get(s.symbol);
+    }
+  }, {
+    key: 'find',
+    value: function find(sym, varvec) {
+      if (this.table.has(sym.symbol)) return this.table.get(sym.symbol);else if (this.table.has(_ANY.symbol)) {
+        varvec.push(sym);
+        //console.log ('\n\n\nvarvec -----', varvec);
+        return this.table.get(_ANY.symbol);
+      } else return null;
+    }
+  }, {
+    key: 'makeFinal',
+    value: function makeFinal(num) {
+      this.finalPointer = num;
+    }
+  }]);
+  return RhoState;
+}();
+
+var Resolution = function Resolution(params, body) {
+  classCallCheck(this, Resolution);
+
+  this.params = params;
+  this.body = body;
+};
+
+var Reduced = function Reduced(body, params, args) {
+  classCallCheck(this, Reduced);
+
+  this.body = body;
+  this.params = params;
+  this.args = args;
+};
+
+var Rho = function () {
+  function Rho(par) {
+    classCallCheck(this, Rho);
+
+    this.initialState = new RhoState();
+    this.resolutionVector = [];
+    this.size = 0;
+    this.env = par;
+  }
+
+  createClass(Rho, [{
+    key: 'accept',
+    value: function accept(pattern, resolutionBody) {
+      if (!this.env.syncLock) return new IError('[RHO INTERNAL] can define rewrite rules only inside a _sync block');
+      var varvec = [];
+      var state = this.initialState;
+      var pcell = pattern;
+      //console.log ('\n\n\ndebug-rho-pattern: \n-------\n', inspect(pattern));
+      while (pcell instanceof Cell) {
+        //console.log ('\n\n\ndebug: \n-------\n', inspect(state));
+        state = state.accept(pcell.car, varvec);
+        if (state instanceof IError) return state;
+        pcell = pcell.cdr;
+      }
+
+      //console.log('debug: ',varvec);
+      this.resolutionVector.push(new Resolution(varvec, resolutionBody));
+      state.makeFinal(this.size);
+      this.size++;
+      return true;
+    }
+  }, {
+    key: 'find',
+    value: function find(cell) {
+      var state = this.initialState;
+      var acell = cell;
+      var varvec = [];
+
+      while (acell instanceof Cell) {
+        state = state.find(acell.car, varvec);
+        if (state === null) break;
+        acell = acell.cdr;
+      }
+      if (state === null || state.finalPointer === null) {
+        varvec = [];
+        if (this.env.par !== null) {
+          //console.log ('\n\nSEARCHING PARENT ... ... ...\n\n');
+          //console.log ('\n\n\nvarvec ==== ', varvec);
+          var r = this.env.par.rho.find(cell);
+          //console.log ('\n\n\nvarvec ===== ', varvec);
+          return r;
+        } else return [null, []];
+      }
+      //console.log (inspect (this.resolutionVector [state.finalPointer]));
+      //console.log ('\n\n\nvarvec ******* ', varvec);
+      return [this.resolutionVector[state.finalPointer], varvec];
+    }
+  }, {
+    key: 'reduce',
+    value: function reduce(cell, env) {
+      var res = void 0,
+          varvec = void 0;
+      //console.log ('\n\n\n#############################\n\n\n', varvec);
+      var r = this.find(cell);
+      //console.log(r);
+      res = r[0];
+      if (res === null) return null;
+
+      varvec = r[1];
+      var args = [];
+      var argStrs = [];
+      var _iteratorNormalCompletion = true;
+      var _didIteratorError = false;
+      var _iteratorError = undefined;
+
+      try {
+        for (var _iterator = varvec[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+          var v = _step.value;
+
+          if (v instanceof IronSymbol) {
+            args.push(env.get(v));
+            argStrs.push(v.symbol);
+          } else {
+            args.push(v);
+            argStrs.push('' + v);
+          }
+        }
+      } catch (err) {
+        _didIteratorError = true;
+        _iteratorError = err;
+      } finally {
+        try {
+          if (!_iteratorNormalCompletion && _iterator.return) {
+            _iterator.return();
+          }
+        } finally {
+          if (_didIteratorError) {
+            throw _iteratorError;
+          }
+        }
+      }
+
+      var paramsList = [];
+      var argsList = [];
+      var _iteratorNormalCompletion2 = true;
+      var _didIteratorError2 = false;
+      var _iteratorError2 = undefined;
+
+      try {
+        for (var _iterator2 = res.params[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+          var s = _step2.value;
+
+          if (s.startsWith('@')) {
+            paramsList.push(s);
+            argsList.push(args.shift());
+            paramsList.push(new IronSymbol('@#' + s.symbol.slice(1)));
+            argsList.push(argStrs.shift());
+          }
+        }
+
+        //console.log ('\n\n\ndebug: \n----------\n\n\n', inspect(res), '\n\n\n', inspect(cell), '\n\n\n', varvec, '\n\n\n', inspect(env));
+        //let scope = new Env (Cell.list(res.params), Cell.list(args), env);
+        //console.log('debug: \n' +inspect(scope));
+      } catch (err) {
+        _didIteratorError2 = true;
+        _iteratorError2 = err;
+      } finally {
+        try {
+          if (!_iteratorNormalCompletion2 && _iterator2.return) {
+            _iterator2.return();
+          }
+        } finally {
+          if (_didIteratorError2) {
+            throw _iteratorError2;
+          }
+        }
+      }
+
+      return new Reduced(res.body, paramsList, argsList);
+    }
+  }]);
+  return Rho;
+}();
+
+/**
+ * Copyright (c) 2016 Ganesh Prasad Sahoo (GnsP)
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy 
+ * of this software and associated documentation files (the "Software"), to deal 
+ * in the Software without restriction, including without limitation the rights 
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
+ * copies of the Software, and to permit persons to whom the Software is 
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in 
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+ * SOFTWARE.
+ *
+ */
+
+//import {inspect} from 'util';
+
+var Env = function () {
+  function Env(param, arg, par) {
+    classCallCheck(this, Env);
+
+    this.__itype__ = "env";
+    this.map = new Map();
+    this.par = par;
+    this.syncLock = true;
+    this.bind(param, arg);
+    this.syncLock = false;
+    this.rho = new Rho(this);
+    this.constTable = new Map();
+  }
+
+  createClass(Env, [{
+    key: 'sync',
+    value: function sync() {
+      this.syncLock = true;
+    }
+  }, {
+    key: 'unsync',
+    value: function unsync() {
+      this.syncLock = false;
+    }
+  }, {
+    key: 'syncAndBind',
+    value: function syncAndBind(key, val) {
+      var flag = false;
+      if (!this.syncLock) {
+        this.sync();
+        flag = true;
+      }
+      this.bind(key, val);
+      if (flag) this.unsync();
+    }
+  }, {
+    key: 'bind',
+    value: function bind(key, val) {
+      if (!this.syncLock) return false;
+      while (key instanceof Cell) {
+        //console.log ('debug: ',inspect(key), inspect(val));
+        ensure(val instanceof Cell, "can not bind a List to an Atom");
+        this.bind(key.car, val.car);
+        key = key.cdr;
+        val = val.cdr;
+      }
+      if (key !== null) {
+        ensure(key instanceof IronSymbol, "" + key + " is not an IronSymbol");
+        var keystr = key.symbol;
+        this.map.set(keystr, val);
+      }
+      return true;
+    }
+  }, {
+    key: 'find',
+    value: function find(key) {
+      ensure(key instanceof IronSymbol, "" + key + " is not an IronSymbol");
+      var keystr = key.symbol;
+      if (this.map.has(keystr)) return this;
+      return this.par.find(key);
+    }
+  }, {
+    key: 'get',
+    value: function get(key) {
+      ensure(key instanceof IronSymbol, "" + key + " is not an IronSymbol");
+      var ret = void 0;
+      var keystr = key.symbol;
+      if (this.map.has(keystr)) ret = this.map.get(keystr);else if (this.par !== null) ret = this.par.get(key);else ret = key;
+
+      if (ret instanceof Function) return ret;else if (ret instanceof Object && ret.__itype__ === 'stream') return ret;else if (ret instanceof Object) return Object.assign({}, ret);
+      return ret;
+    }
+  }, {
+    key: 'defc',
+    value: function defc(key, val) {
+      this.constTable.set(key, val);
+      return val;
+    }
+  }, {
+    key: 'setc',
+    value: function setc(key, val) {
+      if (this.constTable.has(key)) return this.constTable.get(key);
+      this.constTable.set(key, val);
+      return val;
+    }
+  }, {
+    key: 'getc',
+    value: function getc(key) {
+      if (this.constTable.has(key)) return this.constTable.get(key);else if (this.par !== null) return this.par.getc(key);else return null;
+    }
+  }], [{
+    key: 'clone',
+    value: function clone(env) {
+      var e = new Env(null, null, env.par);
+      e.map = env.map;
+      e.rho = env.rho;
+      e.constTable = env.constTable;
+      return e;
+    }
+  }]);
+  return Env;
+}();
+
+/**
+ * Copyright (c) 2016 Ganesh Prasad Sahoo (GnsP)
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy 
+ * of this software and associated documentation files (the "Software"), to deal 
+ * in the Software without restriction, including without limitation the rights 
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
+ * copies of the Software, and to permit persons to whom the Software is 
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in 
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+ * SOFTWARE.
+ *
+ */
+
+var Stream = function Stream(core, env) {
+  var _this = this;
+
+  classCallCheck(this, Stream);
+
+  this.__itype__ = 'stream';
+  this.env = env;
+  this.core = core;
+  this.value = undefined;
+
+  this.callbacks = [];
+  this.addcb = function (cb) {
+    _this.callbacks.push(cb);
+  };
+
+  nextTick(this.core, function (val) {
+    _this.value = val;
+    var _iteratorNormalCompletion = true;
+    var _didIteratorError = false;
+    var _iteratorError = undefined;
+
+    try {
+      for (var _iterator = _this.callbacks[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+        var cb = _step.value;
+
+        nextTick(cb, null, _this.env, null, val);
+      }
+    } catch (err) {
+      _didIteratorError = true;
+      _iteratorError = err;
+    } finally {
+      try {
+        if (!_iteratorNormalCompletion && _iterator.return) {
+          _iterator.return();
+        }
+      } finally {
+        if (_didIteratorError) {
+          throw _iteratorError;
+        }
+      }
+    }
+  });
+};
+
 /**
  * Copyright (c) 2016 Ganesh Prasad Sahoo (GnsP)
  *
@@ -4696,6 +4842,7 @@ var _def = new IronSymbol('_def');
 var _assign_unsafe = new IronSymbol('_assign!');
 var _fn = new IronSymbol('_fn');
 var _begin = new IronSymbol('_begin');
+var _sync = new IronSymbol('_sync');
 var _rho = new IronSymbol('_rho');
 
 var _self = new IronSymbol('_self');
@@ -4706,8 +4853,12 @@ var _map_ = new IronSymbol('_map_');
 var _get = new IronSymbol('_get');
 var _set = new IronSymbol('_set');
 var _push = new IronSymbol('_push');
+var _pull = new IronSymbol('_pull');
 var _stream = new IronSymbol('_stream');
 var _do = new IronSymbol('_do');
+var _on = new IronSymbol('_on');
+var _include = new IronSymbol('_include');
+var _import = new IronSymbol('_import');
 
 var defaultCallback = function defaultCallback(err, env) {
   if (err) {
@@ -4739,7 +4890,7 @@ function evalAsync(x, env) {
       var val = x.cdr.cdr.car;
       nextTick(evalAsync, val, env, function (err, _env, _, value) {
         var sts = env.bind(name, value);
-        if (!sts) nextTick(cb, 'can _def only inside a _begin block');else nextTick(cb, null, env, null, true);
+        if (!sts) nextTick(cb, 'can _def only inside a _begin block');else nextTick(cb, null, env, null, value);
       });
     })();
   } else if (_assign_unsafe.equal(x.car)) {
@@ -4748,7 +4899,7 @@ function evalAsync(x, env) {
       var val = x.cdr.cdr.car;
       nextTick(evalAsync, val, env, function (err, _env, _, value) {
         var sts = env.find(name).bind(name, value);
-        if (!sts) nextTick(cb, 'can _def only inside a _begin block');else nextTick(cb, null, env, null, true);
+        if (!sts) nextTick(cb, 'can _def only inside a _begin block');else nextTick(cb, null, env, null, value);
       });
     })();
   } else if (_get.equal(x.car)) {
@@ -4848,14 +4999,19 @@ function evalAsync(x, env) {
         if (sts instanceof IError) nextTick(cb, sts);else nextTick(cb, null, env, null, env);
       });
     })();
-  } else if (_begin.equal(x.car)) {
+  } else if (_begin.equal(x.car) || _sync.equal(x.car)) {
     (function () {
       var root = x.cdr;
       var cur = root;
 
-      var _env = new Env(null, null, env);
+      var _env = env;
+      if (_begin.equal(x.car)) _env = new Env(null, null, env);
 
-      _env.sync();
+      var unsyncFlag = false;
+      if (!_env.syncLock) {
+        unsyncFlag = true;
+        _env.sync();
+      }
       whilst(function () {
         return x.cdr instanceof Cell;
       }, function (callback) {
@@ -4864,7 +5020,7 @@ function evalAsync(x, env) {
           nextTick(callback, err, argval);
         });
       }, function (err, res) {
-        _env.unsync();
+        if (unsyncFlag) _env.unsync();
         nextTick(cb, err, _env, null, res);
       });
     })();
@@ -4873,21 +5029,44 @@ function evalAsync(x, env) {
       var func = x.cdr.car;
       var args = x.cdr.cdr;
 
-      var argvals = [];
+      //let argvals = [];
       var arglist = [];
+      //let argflags = [];
+      //let argcount = 0;
       while (args instanceof Cell) {
-        argvals.push(undefined);
+        //argvals.push (null);
+        //argflags.push(false);
         arglist.push(args.car);
         args = args.cdr;
       }
+      //argcount = argflags.length;
 
       nextTick(evalAsync, func, env, function (err, _env, _, func) {
 
-        var stream = function stream(err, __env, cb, _) {
+        var corefn = function corefn(updatefn) {
+          var argvals = Array(arglist.length);
+          var argflags = [];
+          var argcount = arglist.length;
+
           var _loop = function _loop(i) {
+            argflags.push(false);
             nextTick(evalAsync, arglist[i], env, function (err, _env, _, argval) {
               argvals[i] = argval;
-              nextTick.apply(undefined, [func, err, env, cb].concat(argvals));
+              if (argval !== null && argval !== undefined) {
+                //debugger;
+                if (!argflags[i]) {
+                  argflags[i] = true;
+                  argcount--;
+                }
+              } else {
+                if (argflags[i]) {
+                  argflags[i] = false;
+                  argcount++;
+                }
+              }
+              if (argcount === 0) nextTick.apply(undefined, [func, err, env, function (err, _env, _cb, retval) {
+                nextTick(updatefn, retval);
+              }].concat(toConsumableArray(argvals)));
             });
           };
 
@@ -4896,17 +5075,58 @@ function evalAsync(x, env) {
           }
         };
 
+        nextTick(cb, err, env, null, new Stream(corefn, env));
+      });
+    })();
+  } else if (_on.equal(x.car)) {
+    (function () {
+      var controlStream = x.cdr.car;
+      var expr = x.cdr.cdr.car;
+
+      nextTick(evalAsync, controlStream, env, function (err, _env, _, cs) {
+        var corefn = function corefn(updatefn) {
+          cs.addcb(function (err, _env, _cb, val) {
+            nextTick(evalAsync, expr, env, function (err, _env, _, val) {
+              if (val !== null && val !== undefined) nextTick(updatefn, val);
+            });
+          });
+        };
+        var stream = new Stream(corefn, env);
         nextTick(cb, err, env, null, stream);
       });
     })();
-  } else if (_do.equal(x.car)) {
+  } else if (_pull.equal(x.car)) {
     var stream = x.cdr.car;
-    nextTick(evalAsync, stream, env, function (err, _env, _, streamfn) {
-      nextTick(streamfn, err, env, function (err) {
+    nextTick(evalAsync, stream, env, function (err, _env, _, s) {
+      if (s instanceof Object && s.__itype__ === 'stream') nextTick(cb, null, env, null, s.value);else if (s instanceof Array) nextTick(cb, null, env, null, s.shift());else nextTick(cb, new IError("can pull from streams and arrays only"));
+    });
+  } else if (_do.equal(x.car)) {
+    var _stream2 = x.cdr.car;
+    nextTick(evalAsync, _stream2, env, function (err, _env, _, streamObj) {
+      streamObj.addcb(function (err) {
         if (err) throw err;
       });
     });
     nextTick(cb, null, env, null, null);
+  } else if (_include.equal(x.car)) {
+    (function () {
+      var includefn = env.get(x.car);
+      nextTick(evalAsync, x.cdr.car, env, function (err, _env, _, sourcename) {
+        nextTick(includefn, err, env, cb, sourcename);
+      });
+    })();
+  } else if (_import.equal(x.car)) {
+    (function () {
+      //console.log('\n\n\n',env,'\n\n\n');
+      var importfn = env.get(x.car);
+      nextTick(evalAsync, x.cdr.car, env, function (err, _env, _, sourcename) {
+        var names = null;
+        if (x.cdr.cdr) names = x.cdr.cdr.car;
+        nextTick(evalAsync, names, env, function (err, _env, _, namesList) {
+          nextTick(importfn, err, env, cb, sourcename, namesList);
+        });
+      });
+    })();
   } else {
     nextTick(evalAsync, x.car, env, function (err, env, _, func) {
       //console.log (''+x.car +'\n\n'+inspect(func));
@@ -4945,6 +5165,9 @@ function evalAsync(x, env) {
             })();
           }
         })();
+      } else if (func instanceof Object && func.__itype__ === 'stream') {
+        func.addcb(cb);
+        nextTick(cb, err, env, null, func.value);
       } else if (func instanceof Function) {
         var _args = [];
         while (x.cdr instanceof Cell) {
@@ -4992,6 +5215,8 @@ function evalAsync(x, env) {
  */
 
 function fn(params, body, env) {
+  var closureEnv = Env.clone(env);
+  if (env.syncLock) closureEnv.sync();
   return function (err, _env, cb) {
     if (err) cb(err);
     //console.log (body ,'\n\n\n' ,params,'\n\n\n',args,'\n\n\n');
@@ -5001,7 +5226,7 @@ function fn(params, body, env) {
       args[_key - 3] = arguments[_key];
     }
 
-    nextTick(evalAsync, body, new Env(params, Cell.list(args), env), cb);
+    nextTick(evalAsync, body, new Env(params, Cell.list(args), closureEnv), cb);
   };
 }
 
@@ -5058,7 +5283,7 @@ function fxAsync(f) {
       nextTick(_cb, null, _env, null, retval);
     };
 
-    nextTick.apply(undefined, [f, $return, $throw, $catch, $yield, _env].concat(args));
+    nextTick.apply(undefined, [f, $return, $throw, $catch, $yield, _env.par].concat(args));
   };
 }
 
@@ -5235,7 +5460,7 @@ var Lexer = function () {
           this.source.next();
           var fnStr = this.readSpecial('}');
           try {
-            return fxAsync(new Function("$return", "$throw", "$catch", "$yield", "$env", "...args", fnStr)); // jshint ignore: line
+            return fxAsync(new Function("$return", "$throw", "$catch", "$yield", "$scope", "...args", fnStr + ';$return(null);')); // jshint ignore: line
           } catch (e) {
             console.error(fnStr);
             throw e;
@@ -5396,6 +5621,14 @@ function _eval(err, env, cb, src, name) {
   });
 }
 
+function _eval_unsafe(err, env, cb, src, name) {
+  if (!name) name = 'unnamed';
+  var p = new Parser({ name: name, buffer: src });
+  nextTick(evalAsync, p.parse(), env, function (err, _env, _cb, val) {
+    if (cb) nextTick(cb, err, env, null, _env);
+  });
+}
+
 function interpretSync(src, name, env) {
   if (!name) name = 'unnamed';
   var p = new Parser({ name: name, buffer: src });
@@ -5461,6 +5694,7 @@ var globalenv = function () {
   _globalenv.sync();
   _globalenv.bind(new IronSymbol('_fx'), fx);
   _globalenv.bind(new IronSymbol('_eval'), _eval);
+  _globalenv.bind(new IronSymbol('_eval!'), _eval_unsafe);
   _globalenv.bind(new IronSymbol('_echo'), fxSync(echo));
 
   function _new(cls) {
@@ -5499,21 +5733,122 @@ var globalenv = function () {
  *
  */
 
-var importfn = function (env) {
-  var readSource = env.map.get('_readsource');
+var _readsource = new IronSymbol('_readsource');
+
+function importfn(env) {
   var imported = new Map();
-  return function (err, _env, cb, sourcename) {
-    if (imported.has(sourcename)) nextTick(cb, null, _env, null, imported.get(sourcename));else {
+  return function (err, _env, cb, sourcename, namesList) {
+    var readSource = _env.get(_readsource);
+
+    var basedir = _env.getc('__base_dir__');
+    var __include_dir__ = _env.getc('__include_dir__');
+    var __path_utils__ = _env.getc('__path_utils__');
+
+    var join$$1 = __path_utils__.join;
+    var dirname$$1 = __path_utils__.dirname;
+    var basename$$1 = __path_utils__.basename;
+
+    var sourceDir = null;
+    var _all = new IronSymbol('_all');
+
+    //console.log(_env);
+
+    if (!sourcename.endsWith('.is')) sourceDir = join$$1(__include_dir__, dirname$$1(sourcename));else sourceDir = join$$1(basedir, dirname$$1(sourcename));
+    var filename = join$$1(sourceDir, basename$$1(sourcename));
+    //console.log('debug: '+filename);
+
+    //console.log(namesList);
+    if (imported.has(filename)) {
+      var importEnv = imported.get(filename);
+      if (namesList) {
+        //console.log('\t\t\t\tDebug (1): \t\t',namesList instanceof Cell);
+        if (namesList instanceof Cell) {
+          while (namesList instanceof Cell) {
+            //console.log('\t\t\t\tDebug: \t\t',importEnv.get(namesList.car));
+            _env.syncAndBind(namesList.car, importEnv.get(namesList.car));
+            namesList = namesList.cdr;
+          }
+        } else if (_all.equal(namesList)) _env.map = new Map([].concat(toConsumableArray(_env.map), toConsumableArray(importEnv.map)));
+      }
+      nextTick(cb, null, _env, null, importEnv);
+    } else {
       nextTick(readSource, err, _env, function (err, __env, _cb, src) {
         var p = new Parser({ name: sourcename, buffer: src });
-        nextTick(evalAsync, p.parse(), env, function (err, _env_, _cb, val) {
-          imported.set(sourcename, _env_);
-          nextTick(cb, null, _env, null, _env_);
+        _env.defc('__base_dir__', sourceDir);
+
+        nextTick(evalAsync, p.parse(), env, function (err, importEnv, _cb, val) {
+          imported.set(filename, importEnv);
+          _env.defc('__base_dir__', basedir);
+          if (namesList) {
+            //console.log('\t\t\t\tDebug (2): \t\t',namesList instanceof Cell);
+            if (namesList instanceof Cell) {
+              while (namesList instanceof Cell) {
+
+                //console.log('\t\t\t\tDebug: \t\t',importEnv.get(namesList.car));
+                _env.syncAndBind(namesList.car, importEnv.get(namesList.car));
+                namesList = namesList.cdr;
+              }
+            } else if (_all.equal(namesList)) _env.map = new Map([].concat(toConsumableArray(_env.map), toConsumableArray(importEnv.map)));
+          }
+          nextTick(cb, null, _env, null, importEnv);
         });
-      }, sourcename);
+      }, basename$$1(sourcename));
     }
   };
 }
+
+function includefn(env) {
+  var readsource = env.get(_readsource);
+  var included = new Map();
+  var src = null;
+  return function (err, _env, cb, sourcename) {
+    var basedir = _env.getc('__base_dir__');
+    var __include_dir__ = _env.getc('__include_dir__');
+    var __path_utils__ = _env.getc('__path_utils__');
+
+    var join$$1 = __path_utils__.join;
+    var dirname$$1 = __path_utils__.dirname;
+    var basename$$1 = __path_utils__.basename;
+
+    var sourceDir = null;
+
+    //console.log('__debug__: '+dirname(sourcename));
+    if (!sourcename.endsWith('.is')) sourceDir = join$$1(__include_dir__, dirname$$1(sourcename));else sourceDir = join$$1(basedir, dirname$$1(sourcename));
+    //console.log('__debug__: ', sourceDir);
+    _env.defc('__base_dir__', sourceDir);
+    var filename = join$$1(sourceDir, basename$$1(sourcename));
+
+    //console.log('debug: '+filename);
+    if (included.has(filename)) {
+      src = included.get(filename);
+      var p = new Parser({ name: sourcename, buffer: src });
+      nextTick(evalAsync, p.parse(), _env, function (err, _env, _cb, val) {
+        _env.defc('__base_dir__', basedir);
+        nextTick(cb, null, _env, null, null);
+      });
+    } else {
+      nextTick(readsource, err, _env, function (err, __env, _cb, src) {
+        included.set(filename, src);
+        //console.log(filename, '\n\n', src);
+        var p = new Parser({ name: sourcename, buffer: src });
+        nextTick(evalAsync, p.parse(), _env, function (err, _env, _cb, val) {
+          _env.defc('__base_dir__', basedir);
+          nextTick(cb, null, _env, null, null);
+        });
+      }, basename$$1(sourcename));
+    }
+  };
+}
+
+/*
+
+export const globalenv = globalenv;
+export const IronSymbol = IronSymbol;
+export const importfn = importfn;
+export const includefn = includefn;
+export const interpretSync = interpretSync;
+
+*/
 
 /**
  * Copyright (c) 2016 Ganesh Prasad Sahoo (GnsP)
@@ -5540,16 +5875,33 @@ var importfn = function (env) {
 
 var nodeEnv = function (basedir) {
   var env = globalenv();
-  env.sync();
+
+  env.defc('__base_dir__', basedir);
+  env.defc('__readfile__', fs.readFile);
+  env.defc('__include_dir__', path.join(__dirname, 'include'));
+  env.defc('imports', global);
+  env.defc('__path_utils__', {
+    join: path.join,
+    dirname: path.dirname,
+    basename: path.basename,
+    extname: path.extname
+  });
 
   function _readFile(err, _env, _cb, filepath) {
-    fs.readFile(path.join('./', basedir, filepath), 'utf8', function (err, str) {
+    var basedir = _env.getc('__base_dir__');
+    //console.log(basedir);
+    if (!basedir.startsWith('/')) basedir = path.join('./', basedir);
+    fs.readFile(path.join(basedir, filepath), 'utf8', function (err, str) {
       nextTick(_cb, err, _env, null, str);
     });
   }
+
+  env.sync();
+
   env.bind(new IronSymbol('_readfile'), _readFile);
   env.bind(new IronSymbol('_readsource'), _readFile);
   env.bind(new IronSymbol('_import'), importfn(env));
+  env.bind(new IronSymbol('_include'), includefn(env));
 
   env.unsync();
   return env;
@@ -5578,8 +5930,44 @@ var nodeEnv = function (basedir) {
  *
  */
 
-var filename = process.argv[2];
-var basedir = path.dirname(filename);
+var filename = null;
+var basedir = null;
+var config = null;
+
+if (process.argv.length > 2) filename = process.argv[2];else {
+  config = JSON.parse(fs.readFileSync('./iron.config.json', 'utf8'));
+  if (!config) throw 'config could not be extracted from iron.config.json';
+  filename = config.main;
+}
+
+if (filename) basedir = path.dirname(filename);
+
+function loadScript(url, name) {
+  global[name] = require(path.join(process.cwd(), url));
+}
+var _iteratorNormalCompletion = true;
+var _didIteratorError = false;
+var _iteratorError = undefined;
+
+try {
+  for (var _iterator = config.imports[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+    var imp = _step.value;
+    loadScript(imp.url, imp.name);
+  }
+} catch (err) {
+  _didIteratorError = true;
+  _iteratorError = err;
+} finally {
+  try {
+    if (!_iteratorNormalCompletion && _iterator.return) {
+      _iterator.return();
+    }
+  } finally {
+    if (_didIteratorError) {
+      throw _iteratorError;
+    }
+  }
+}
 
 fs.readFile(filename, 'utf8', function (err, str) {
   if (err) throw err;

@@ -25,7 +25,7 @@
 import Env from './env.js';
 import IronSymbol from './symbol.js';
 import {fn, fx, fxSync} from './higher.js';
-import {_eval} from './interpret.js';
+import {_eval, _eval_unsafe} from './interpret.js';
 import {nextTick} from 'async-es';
 import Cell from './cell.js';
 
@@ -41,6 +41,7 @@ export default function () {
   _globalenv.sync();
   _globalenv.bind (new IronSymbol('_fx'), fx);
   _globalenv.bind (new IronSymbol('_eval'), _eval);
+  _globalenv.bind (new IronSymbol('_eval!'), _eval_unsafe);
   _globalenv.bind (new IronSymbol('_echo'), fxSync(echo));
 
   function _new (cls, ...args) {

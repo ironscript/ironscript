@@ -24,6 +24,7 @@
 
 import Cell from './cell.js';
 import Env from './env.js';
+import Stream from './stream.js';
 import {fn} from './higher.js';
 import IronSymbol from './symbol.js';
 import IError from './errors.js';
@@ -37,6 +38,7 @@ const _def = new IronSymbol ('_def');
 const _assign_unsafe = new IronSymbol ('_assign!');
 const _fn = new IronSymbol('_fn');
 const _begin = new IronSymbol('_begin');
+const _sync = new IronSymbol('_sync');
 const _rho = new IronSymbol('_rho');
 
 const _self = new IronSymbol('_self'); 
@@ -47,8 +49,12 @@ const _map_ = new IronSymbol('_map_');
 const _get = new IronSymbol('_get'); 
 const _set = new IronSymbol('_set'); 
 const _push = new IronSymbol('_push'); 
+const _pull = new IronSymbol('_pull'); 
 const _stream = new IronSymbol('_stream'); 
 const _do = new IronSymbol('_do'); 
+const _on = new IronSymbol('_on'); 
+const _include = new IronSymbol('_include'); 
+const _import = new IronSymbol('_import'); 
 
 const defaultCallback = (err, env) => {
   if (err) {
@@ -85,7 +91,7 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
     nextTick (evalAsync, val, env, (err, _env, _, value) => {
       let sts = env.bind(name, value);
       if (!sts) nextTick (cb, 'can _def only inside a _begin block');
-      else nextTick (cb, null, env, null, true);
+      else nextTick (cb, null, env, null, value);
     });
   }
   else if (_assign_unsafe.equal(x.car)) {
@@ -94,7 +100,7 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
     nextTick (evalAsync, val, env, (err, _env, _, value) => {
       let sts = env.find(name).bind(name, value);
       if (!sts) nextTick (cb, 'can _def only inside a _begin block');
-      else nextTick (cb, null, env, null, true);
+      else nextTick (cb, null, env, null, value);
     });
   }
   else if (_get.equal(x.car)) {
@@ -206,13 +212,18 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
       else nextTick (cb, null, env, null, env);
     });
   }
-  else if (_begin.equal(x.car)) {
+  else if (_begin.equal(x.car) || _sync.equal(x.car)) {
     let root = x.cdr;
     let cur = root;
+    
+    let _env = env;
+    if (_begin.equal(x.car)) _env = new Env(null, null, env);
 
-    let _env = new Env(null, null, env);
-
-    _env.sync();
+    let unsyncFlag = false;
+    if (!_env.syncLock) {
+      unsyncFlag = true;
+      _env.sync();
+    }
     whilst (
       () => { return x.cdr instanceof Cell; },
       (callback) => {
@@ -223,7 +234,7 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
       },
 
       (err, res) => {
-        _env.unsync();
+        if (unsyncFlag) _env.unsync();
         nextTick (cb, err, _env, null, res);
       }
     );
@@ -232,38 +243,102 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
     let func = x.cdr.car;
     let args = x.cdr.cdr;
 
-    let argvals = [];
+    //let argvals = [];
     let arglist = [];
+    //let argflags = [];
+    //let argcount = 0;
     while (args instanceof Cell) {
-      argvals.push (undefined);
+      //argvals.push (null);
+      //argflags.push(false);
       arglist.push (args.car);
       args = args.cdr;
     }
+    //argcount = argflags.length;
 
     nextTick (evalAsync, func, env, (err, _env, _, func) => {
       
-      let stream = (err, __env, cb, _) => {
+      let corefn = (updatefn) => {
+        let argvals = Array(arglist.length);
+        let argflags = [];
+        let argcount = arglist.length;
         for (let i=0; i<arglist.length; i++) {
+          argflags.push(false);
           nextTick (evalAsync, arglist[i], env, (err, _env, _, argval) => {
             argvals[i] = argval;
-            nextTick (func, err, env, cb, ...argvals);
+            if (argval !== null && argval !== undefined) {
+              //debugger;
+              if (!argflags[i]) {
+                argflags[i] = true;
+                argcount--;
+              }
+            }
+            else {
+              if (argflags[i]) {
+                argflags[i] = false;
+                argcount++;
+              }
+            }
+            if (argcount === 0) nextTick (func, err, env, (err, _env, _cb, retval) => {
+                nextTick (updatefn, retval);
+              } , ...argvals);
           });
         }
       };
       
-      nextTick(cb, err, env, null, stream);
+      nextTick(cb, err, env, null, new Stream(corefn, env) );
 
+    });
+  }
+  else if (_on.equal(x.car)) {
+    let controlStream = x.cdr.car;
+    let expr = x.cdr.cdr.car;
+    
+    nextTick (evalAsync, controlStream, env, (err, _env, _, cs) => {
+      let corefn = (updatefn) => {
+        cs.addcb((err, _env, _cb, val) => {
+          nextTick (evalAsync, expr, env, (err, _env, _, val) => {
+            if (val !== null && val !== undefined)
+              nextTick (updatefn, val);
+          });
+        });
+      };
+      let stream = new Stream (corefn, env);
+      nextTick (cb, err, env, null, stream);
+    });
+  }
+  else if (_pull.equal(x.car)) {
+    let stream = x.cdr.car;
+    nextTick (evalAsync, stream, env, (err, _env, _, s) => {
+      if (s instanceof Object && s.__itype__==='stream')
+        nextTick (cb, null, env, null, s.value);
+      else if (s instanceof Array)
+        nextTick (cb, null, env, null, s.shift());
+      else nextTick (cb, new IError("can pull from streams and arrays only"));
     });
   }
   else if (_do.equal(x.car)) {
     let stream = x.cdr.car;
-    nextTick (evalAsync, stream, env, (err, _env, _, streamfn) => {
-      nextTick (streamfn, err, env, (err) => {
-        if (err) throw err;
-      });
+    nextTick (evalAsync, stream, env, (err, _env, _, streamObj) => {
+      streamObj.addcb ((err) => { if(err) throw err;} );
     });
     nextTick (cb, null, env, null, null);
-
+  }
+  else if (_include.equal(x.car)) {
+    let includefn = env.get(x.car);
+    nextTick (evalAsync, x.cdr.car, env, (err, _env, _, sourcename) => {
+      nextTick (includefn, err, env, cb, sourcename);
+    });
+  }
+  else if (_import.equal(x.car)) {
+    //console.log('\n\n\n',env,'\n\n\n');
+    let importfn = env.get(x.car);
+    nextTick (evalAsync, x.cdr.car, env, (err, _env, _, sourcename) => {
+      let names = null;
+      if (x.cdr.cdr) names = x.cdr.cdr.car;
+      nextTick (evalAsync, names, env, (err, _env, _, namesList) => {
+        nextTick (importfn, err, env, cb, sourcename, namesList);
+      });
+    });
   }
   else {
     nextTick (evalAsync, x.car, env, (err, env, _, func) => {
@@ -303,6 +378,12 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
           //});
         }
       }
+      
+      else if (func instanceof Object && func.__itype__ === 'stream') {
+        func.addcb(cb)
+        nextTick (cb, err, env, null, func.value);
+      }
+
       else if (func instanceof Function) {
         let args = [];
         while (x.cdr instanceof Cell) {
@@ -328,5 +409,4 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
   }
 
 }
-
 

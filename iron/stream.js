@@ -22,30 +22,27 @@
  */
 
 
-import Parser from './parser.js';
-import evalAsync from './evalAsync.js';
+import Env from './env.js';
 import {nextTick} from 'async-es';
-import globalenv from './globalenv.js';
 
-export function _eval (err, env, cb, src, name) {
-  if (!name) name = 'unnamed';
-  let p = new Parser ({name: name, buffer: src});
-  nextTick (evalAsync, p.parse(), globalenv(), (err, _env, _cb, val) => {
-    if (cb) nextTick (cb, err, env, null, _env);
-  });
-}
+export default class Stream {
+  constructor (core, env) {
+    this.__itype__ = 'stream';
+    this.env = env;
+    this.core = core;
+    this.value = undefined;
 
-export function _eval_unsafe (err, env, cb, src, name) {
-  if (!name) name = 'unnamed';
-  let p = new Parser({name: name, buffer: src});
-  nextTick (evalAsync, p.parse(), env, (err, _env, _cb, val) => {
-    if (cb) nextTick (cb, err, env, null, _env);
-  });
-}
+    this.callbacks = [];
+    this.addcb = (cb) => { this.callbacks.push(cb); }
 
-export function interpretSync (src, name, env) {
-  if (!name) name = 'unnamed';
-  let p = new Parser ({name: name, buffer: src});
-  nextTick (evalAsync, p.parse(), env);
-}
+    nextTick (this.core, (val) => {
+      this.value = val;
+      for (let cb of this.callbacks) 
+        nextTick (cb, null, this.env, null, val);
+    });
+  }
+};
+    
+
+
 

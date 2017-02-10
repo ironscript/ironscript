@@ -1,2 +1,3 @@
 _begin
+  (_include "./testModules/module1.is")
   (_def name "IronScript")

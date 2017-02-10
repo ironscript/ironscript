@@ -141,21 +141,41 @@ export default class Rho {
   reduce (cell, env) {
     let res, varvec;
     //console.log ('\n\n\n#############################\n\n\n', varvec);
-    let r = this.find(cell, varvec);
+    let r = this.find(cell);
     //console.log(r);
     res = r[0];
     if (res === null) return null;
 
     varvec = r[1];
     let args = [];
+    let argStrs = [];
     for (let v of varvec) {
-      if (v instanceof IronSymbol) args.push(env.get(v));
-      else args.push(v);
+      if (v instanceof IronSymbol) {
+        args.push(env.get(v));
+        argStrs.push(v.symbol);
+      }
+      else {
+        args.push(v);
+        argStrs.push(''+v);
+      }
     }
+
+    let paramsList = [];
+    let argsList = [];
+    for (let s of res.params) {
+      if (s.startsWith('@')) {
+        paramsList.push(s);
+        argsList.push(args.shift());
+        paramsList.push(new IronSymbol('@#' + s.symbol.slice(1)));
+        argsList.push(argStrs.shift());
+      }
+    }
+
+
     //console.log ('\n\n\ndebug: \n----------\n\n\n', inspect(res), '\n\n\n', inspect(cell), '\n\n\n', varvec, '\n\n\n', inspect(env));
     //let scope = new Env (Cell.list(res.params), Cell.list(args), env);
     //console.log('debug: \n' +inspect(scope));
-    return new Reduced (res.body, res.params, args);
+    return new Reduced (res.body, paramsList, argsList);
   }
 }
 

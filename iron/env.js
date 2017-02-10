@@ -38,6 +38,15 @@ export default class Env {
     this.bind (param, arg);
     this.syncLock = false;
     this.rho = new Rho(this);
+    this.constTable = new Map();
+  }
+  
+  static clone (env) {
+    let e = new Env(null, null, env.par);
+    e.map = env.map;
+    e.rho = env.rho;
+    e.constTable = env.constTable;
+    return e;
   }
 
   sync () {
@@ -46,6 +55,16 @@ export default class Env {
 
   unsync () {
     this.syncLock = false;
+  }
+
+  syncAndBind (key, val) {
+    let flag = false;
+    if (!this.syncLock) {
+      this.sync();
+      flag = true;
+    }
+    this.bind (key, val);
+    if (flag) this.unsync();
   }
 
   bind (key, val) {
@@ -81,8 +100,26 @@ export default class Env {
     else ret = key;
     
     if (ret instanceof Function) return ret;
+    else if (ret instanceof Object && ret.__itype__ === 'stream') return ret;
     else if (ret instanceof Object) return Object.assign({}, ret);
     return ret;
   }
-}
 
+  defc (key, val) {
+    this.constTable.set(key, val);
+    return val;
+  }
+
+  setc (key, val) {
+    if (this.constTable.has(key)) return this.constTable.get(key);
+    this.constTable.set(key, val);
+    return val;
+  }
+
+  getc (key) {
+    if (this.constTable.has(key)) return this.constTable.get(key);
+    else if (this.par !== null) return this.par.getc(key);
+    else return null;
+  }
+
+}

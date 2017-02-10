@@ -3,10 +3,9 @@ import resolve from 'rollup-plugin-node-resolve';
 import commonjs from 'rollup-plugin-commonjs';
 
 export default {
-  entry: './browser-runtime/ironscript-browser.js',
-  dest: './dist/browser/ironscript.js',
-  format: 'iife',
-  moduleName: 'ironscript',
+  entry: './bundler-runtime/ibun.js',
+  dest: './dist/bundler/ibun.js',
+  format: 'cjs',
   plugins: [
     resolve({
       jsnext: true,

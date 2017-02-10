@@ -4,8 +4,10 @@
     <title> IRONSCRIPT TEST </title>
   </head>
   <body>
-    <a href="#" id="click-link">Click</a>
-    <a href="#" id="unclick-link">Unclick</a>
+    <fieldset>
+    <a href="#" id="click-link" data-gogh-id="CLICK_LINK">Click</a>
+    <a href="#" id="unclick-link" data-gogh-id="UNCLICK_LINK">Unclick</a>
+    </fieldset>
     <p id="msg"></p>
     <script type="text/javascript" src="../dist/browser/ironscript.min.js"></script>
     <script type="text/ironscript" id="ironscript-main">
@@ -13,7 +15,10 @@
       _begin
         (_def attach-event @{
           let id = args[0], event = args[1];
-          document.getElementById(id).addEventListener(event, ()=> {$yield(true);});
+          document.getElementById(id).addEventListener(event, (e) => {
+            console.log(e.target.getAttribute('data-gogh-id'));
+            $yield(true);
+          });
         }@ )
         
         (_def update-inner-html @{
