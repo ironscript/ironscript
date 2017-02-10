@@ -5051,12 +5051,17 @@ function evalAsync(x, env) {
           var _loop = function _loop(i) {
             argflags.push(false);
             nextTick(evalAsync, arglist[i], env, function (err, _env, _, argval) {
+              argvals[i] = argval;
               if (argval !== null && argval !== undefined) {
                 //debugger;
-                argvals[i] = argval;
                 if (!argflags[i]) {
                   argflags[i] = true;
                   argcount--;
+                }
+              } else {
+                if (argflags[i]) {
+                  argflags[i] = false;
+                  argcount++;
                 }
               }
               if (argcount === 0) nextTick.apply(undefined, [func, err, env, function (err, _env, _cb, retval) {
@@ -5082,7 +5087,7 @@ function evalAsync(x, env) {
         var corefn = function corefn(updatefn) {
           cs.addcb(function (err, _env, _cb, val) {
             nextTick(evalAsync, expr, env, function (err, _env, _, val) {
-              nextTick(updatefn, val);
+              if (val !== null && val !== undefined) nextTick(updatefn, val);
             });
           });
         };
@@ -5093,7 +5098,7 @@ function evalAsync(x, env) {
   } else if (_pull.equal(x.car)) {
     var stream = x.cdr.car;
     nextTick(evalAsync, stream, env, function (err, _env, _, s) {
-      if (s instanceof Object && s.__itype__ === 'stream') nextTick(cb, null, env, null, s.value);else nextTick(cb, new IError("can pull only from streams"));
+      if (s instanceof Object && s.__itype__ === 'stream') nextTick(cb, null, env, null, s.value);else if (s instanceof Array) nextTick(cb, null, env, null, s.shift());else nextTick(cb, new IError("can pull from streams and arrays only"));
     });
   } else if (_do.equal(x.car)) {
     var _stream2 = x.cdr.car;
