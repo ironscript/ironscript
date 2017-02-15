@@ -26,6 +26,7 @@ export default class Cell {
   constructor (val) {
     this.car = val;
     this.cdr = null;
+    this.ctx = null;
   }
 
 
@@ -63,6 +64,13 @@ export default class Cell {
     str += Cell.printAtom (cell.car);
     str += ' ) ';
     return str;
+  }
+
+  static stringify (cell) {
+    if (cell instanceof Cell) return Cell.printList(cell);
+    else if (cell instanceof Object && cell.type === "ironsymbol") 
+      return cell.symbol;
+    else return JSON.stringify(cell);
   }
 
   static printAtom (cell) {

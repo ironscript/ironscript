@@ -28,6 +28,6 @@ export default class IError {
   }
 
   log () {
-    console.log (this.message);
+    console.log (JSON.stringify(this.message));
   }
 }

@@ -37,7 +37,7 @@ function echo (...args) {
 }
 
 export default function () {
-  let _globalenv = new Env (null, null, null);
+  let _globalenv = new Env (null, null, null, true);
   _globalenv.sync();
   _globalenv.bind (new IronSymbol('_fx'), fx);
   _globalenv.bind (new IronSymbol('_eval'), _eval);

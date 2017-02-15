@@ -213,14 +213,14 @@ var possibleConstructorReturn = function (self, call) {
 
 
 
-var set = function set(object, property, value, receiver) {
+var set$1 = function set$1(object, property, value, receiver) {
   var desc = Object.getOwnPropertyDescriptor(object, property);
 
   if (desc === undefined) {
     var parent = Object.getPrototypeOf(object);
 
     if (parent !== null) {
-      set(parent, property, value, receiver);
+      set$1(parent, property, value, receiver);
     }
   } else if ("value" in desc && desc.writable) {
     desc.value = value;
@@ -288,6 +288,7 @@ var Cell = function () {
 
     this.car = val;
     this.cdr = null;
+    this.ctx = null;
   }
 
   createClass(Cell, null, [{
@@ -349,6 +350,11 @@ var Cell = function () {
       str += Cell.printAtom(cell.car);
       str += ' ) ';
       return str;
+    }
+  }, {
+    key: 'stringify',
+    value: function stringify(cell) {
+      if (cell instanceof Cell) return Cell.printList(cell);else if (cell instanceof Object && cell.type === "ironsymbol") return cell.symbol;else return JSON.stringify(cell);
     }
   }, {
     key: 'printAtom',
@@ -468,7 +474,7 @@ var IError = function () {
   createClass(IError, [{
     key: "log",
     value: function log() {
-      console.log(this.message);
+      console.log(JSON.stringify(this.message));
     }
   }]);
   return IError;
@@ -698,134 +704,6 @@ var Rho = function () {
     }
   }]);
   return Rho;
-}();
-
-/**
- * Copyright (c) 2016 Ganesh Prasad Sahoo (GnsP)
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy 
- * of this software and associated documentation files (the "Software"), to deal 
- * in the Software without restriction, including without limitation the rights 
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
- * copies of the Software, and to permit persons to whom the Software is 
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in 
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
- * SOFTWARE.
- *
- */
-
-//import {inspect} from 'util';
-
-var Env = function () {
-  function Env(param, arg, par) {
-    classCallCheck(this, Env);
-
-    this.__itype__ = "env";
-    this.map = new Map();
-    this.par = par;
-    this.syncLock = true;
-    this.bind(param, arg);
-    this.syncLock = false;
-    this.rho = new Rho(this);
-    this.constTable = new Map();
-  }
-
-  createClass(Env, [{
-    key: 'sync',
-    value: function sync() {
-      this.syncLock = true;
-    }
-  }, {
-    key: 'unsync',
-    value: function unsync() {
-      this.syncLock = false;
-    }
-  }, {
-    key: 'syncAndBind',
-    value: function syncAndBind(key, val) {
-      var flag = false;
-      if (!this.syncLock) {
-        this.sync();
-        flag = true;
-      }
-      this.bind(key, val);
-      if (flag) this.unsync();
-    }
-  }, {
-    key: 'bind',
-    value: function bind(key, val) {
-      if (!this.syncLock) return false;
-      while (key instanceof Cell) {
-        //console.log ('debug: ',inspect(key), inspect(val));
-        ensure(val instanceof Cell, "can not bind a List to an Atom");
-        this.bind(key.car, val.car);
-        key = key.cdr;
-        val = val.cdr;
-      }
-      if (key !== null) {
-        ensure(key instanceof IronSymbol, "" + key + " is not an IronSymbol");
-        var keystr = key.symbol;
-        this.map.set(keystr, val);
-      }
-      return true;
-    }
-  }, {
-    key: 'find',
-    value: function find(key) {
-      ensure(key instanceof IronSymbol, "" + key + " is not an IronSymbol");
-      var keystr = key.symbol;
-      if (this.map.has(keystr)) return this;
-      return this.par.find(key);
-    }
-  }, {
-    key: 'get',
-    value: function get(key) {
-      ensure(key instanceof IronSymbol, "" + key + " is not an IronSymbol");
-      var ret = void 0;
-      var keystr = key.symbol;
-      if (this.map.has(keystr)) ret = this.map.get(keystr);else if (this.par !== null) ret = this.par.get(key);else ret = key;
-
-      if (ret instanceof Function) return ret;else if (ret instanceof Object && ret.__itype__ === 'stream') return ret;else if (ret instanceof Object) return Object.assign({}, ret);
-      return ret;
-    }
-  }, {
-    key: 'defc',
-    value: function defc(key, val) {
-      this.constTable.set(key, val);
-      return val;
-    }
-  }, {
-    key: 'setc',
-    value: function setc(key, val) {
-      if (this.constTable.has(key)) return this.constTable.get(key);
-      this.constTable.set(key, val);
-      return val;
-    }
-  }, {
-    key: 'getc',
-    value: function getc(key) {
-      if (this.constTable.has(key)) return this.constTable.get(key);else if (this.par !== null) return this.par.getc(key);else return null;
-    }
-  }], [{
-    key: 'clone',
-    value: function clone(env) {
-      var e = new Env(null, null, env.par);
-      e.map = env.map;
-      e.rho = env.rho;
-      e.constTable = env.constTable;
-      return e;
-    }
-  }]);
-  return Env;
 }();
 
 /**
@@ -3985,7 +3863,7 @@ consoleFunc('log');
  * Invoked with (err, result).
  */
 
-function has(obj, key) {
+function has$1(obj, key) {
     return key in obj;
 }
 
@@ -4786,6 +4664,340 @@ function whilst(test, iteratee, callback) {
  *
  */
 
+var Store = function Store() {
+  classCallCheck(this, Store);
+};
+
+
+
+var Reference = function () {
+  function Reference(cmd, obj) {
+    classCallCheck(this, Reference);
+
+    this.__itype__ = 'reference';
+    this.obj = obj;
+
+    for (var _len = arguments.length, keys = Array(_len > 2 ? _len - 2 : 0), _key = 2; _key < _len; _key++) {
+      keys[_key - 2] = arguments[_key];
+    }
+
+    this.keys = keys;
+    this.cmd = cmd;
+  }
+
+  createClass(Reference, [{
+    key: 'get',
+    value: function get() {
+      var obj = this.obj;
+      var _iteratorNormalCompletion = true;
+      var _didIteratorError = false;
+      var _iteratorError = undefined;
+
+      try {
+        for (var _iterator = this.keys[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+          var key = _step.value;
+
+          if (obj instanceof Store) obj = obj.get(key);else if (obj instanceof Object) obj = obj[key];else return undefined;
+        }
+      } catch (err) {
+        _didIteratorError = true;
+        _iteratorError = err;
+      } finally {
+        try {
+          if (!_iteratorNormalCompletion && _iterator.return) {
+            _iterator.return();
+          }
+        } finally {
+          if (_didIteratorError) {
+            throw _iteratorError;
+          }
+        }
+      }
+
+      return obj;
+    }
+  }, {
+    key: 'set',
+    value: function set(val) {
+      var obj = this.obj;
+      var _iteratorNormalCompletion2 = true;
+      var _didIteratorError2 = false;
+      var _iteratorError2 = undefined;
+
+      try {
+        for (var _iterator2 = this.keys.slice(0, -1)[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+          var key = _step2.value;
+
+          if (obj instanceof Store) obj = obj.get(key);else if (obj instanceof Object) obj = obj[key];else return undefined;
+        }
+      } catch (err) {
+        _didIteratorError2 = true;
+        _iteratorError2 = err;
+      } finally {
+        try {
+          if (!_iteratorNormalCompletion2 && _iterator2.return) {
+            _iterator2.return();
+          }
+        } finally {
+          if (_didIteratorError2) {
+            throw _iteratorError2;
+          }
+        }
+      }
+
+      if (obj instanceof Store) {
+        obj.set(this.keys[this.keys.length - 1], val);
+        return val;
+      } else if (obj instanceof Object) {
+        obj[this.keys[this.keys.length - 1]] = val;
+        return val;
+      } else return undefined;
+    }
+  }, {
+    key: 'value',
+    get: function get() {
+      var _this = this;
+
+      if (this.cmd === 'get') return this.get();else if (this.cmd === 'set') return function (val) {
+        return _this.set(val);
+      };else return undefined;
+    }
+  }]);
+  return Reference;
+}();
+
+var Collection = function (_Store) {
+  inherits(Collection, _Store);
+
+  function Collection(obj) {
+    classCallCheck(this, Collection);
+
+    var _this2 = possibleConstructorReturn(this, (Collection.__proto__ || Object.getPrototypeOf(Collection)).call(this));
+
+    _this2.__itype__ = 'collection';
+    if (obj) _this2.obj = obj;else _this2.obj = Object.create(null);
+    return _this2;
+  }
+
+  createClass(Collection, [{
+    key: 'has',
+    value: function has(key) {
+      return this.obj[key] !== undefined;
+    }
+  }, {
+    key: 'get',
+    value: function get(key) {
+      if (typeof key !== 'string') return undefined;
+      if (this.has(key)) return this.obj[key];
+      return undefined;
+    }
+  }, {
+    key: 'set',
+    value: function set(key, val) {
+      if (typeof key !== 'string') return undefined;
+      this.obj[key] = val;
+      return this.obj;
+    }
+  }]);
+  return Collection;
+}(Store);
+
+var Sequence = function (_Store2) {
+  inherits(Sequence, _Store2);
+
+  function Sequence(arr) {
+    classCallCheck(this, Sequence);
+
+    var _this3 = possibleConstructorReturn(this, (Sequence.__proto__ || Object.getPrototypeOf(Sequence)).call(this));
+
+    _this3.__itype__ = 'sequence';
+    if (arr) _this3.arr = arr;else _this3.arr = [];
+    return _this3;
+  }
+
+  createClass(Sequence, [{
+    key: 'get',
+    value: function get(ind) {
+      if (parseInt(ind) === Number(ind)) return this.arr[ind];
+      return undefined;
+    }
+  }, {
+    key: 'set',
+    value: function set(ind, val) {
+      if (parseInt(ind) === Number(ind)) {
+        this.arr[ind] = val;
+        return this.arr;
+      }
+      return undefined;
+    }
+  }, {
+    key: 'push',
+    value: function push(val) {
+      this.arr.push(val);
+      return val;
+    }
+  }, {
+    key: 'pull',
+    value: function pull() {
+      return this.arr.shift();
+    }
+  }, {
+    key: 'pop',
+    value: function pop() {
+      return this.arr.pop();
+    }
+  }]);
+  return Sequence;
+}(Store);
+
+/**
+ * Copyright (c) 2016 Ganesh Prasad Sahoo (GnsP)
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy 
+ * of this software and associated documentation files (the "Software"), to deal 
+ * in the Software without restriction, including without limitation the rights 
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
+ * copies of the Software, and to permit persons to whom the Software is 
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in 
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+ * SOFTWARE.
+ *
+ */
+
+//import {inspect} from 'util';
+
+var Env = function () {
+  function Env(param, arg, par) {
+    var newcollection = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : false;
+    classCallCheck(this, Env);
+
+    this.__itype__ = "env";
+    this.map = new Map();
+    this.par = par;
+    this.syncLock = true;
+    this.bind(param, arg);
+    this.syncLock = false;
+    this.rho = new Rho(this);
+    this.symtab = new Map();
+
+    if (newcollection) this.collection = new Collection();else this.collection = this.par.collection;
+  }
+
+  createClass(Env, [{
+    key: 'sync',
+    value: function sync() {
+      this.syncLock = true;
+    }
+  }, {
+    key: 'unsync',
+    value: function unsync() {
+      this.syncLock = false;
+    }
+  }, {
+    key: 'syncAndBind',
+    value: function syncAndBind(key, val) {
+      var flag = false;
+      if (!this.syncLock) {
+        this.sync();
+        flag = true;
+      }
+      this.bind(key, val);
+      if (flag) this.unsync();
+    }
+  }, {
+    key: 'bind',
+    value: function bind(key, val) {
+      if (!this.syncLock) return false;
+      while (key instanceof Cell) {
+        //console.log ('debug: ',inspect(key), inspect(val));
+        ensure(val instanceof Cell, "can not bind a List to an Atom");
+        this.bind(key.car, val.car);
+        key = key.cdr;
+        val = val.cdr;
+      }
+      if (key !== null) {
+        ensure(key instanceof IronSymbol, "" + key + " is not an IronSymbol");
+        var keystr = key.symbol;
+        this.map.set(keystr, val);
+      }
+      return true;
+    }
+  }, {
+    key: 'find',
+    value: function find(key) {
+      ensure(key instanceof IronSymbol, "" + key + " is not an IronSymbol");
+      var keystr = key.symbol;
+      if (this.map.has(keystr)) return this;
+      return this.par.find(key);
+    }
+  }, {
+    key: 'get',
+    value: function get(key) {
+      ensure(key instanceof IronSymbol, "" + key + " is not an IronSymbol");
+      var ret = void 0;
+      var keystr = key.symbol;
+      if (this.map.has(keystr)) ret = this.map.get(keystr);else if (this.par !== null) ret = this.par.get(key);else ret = key;
+
+      if (ret instanceof Function) return ret;else if (ret instanceof Object && ret.__itype__ === 'stream') return ret;else if (ret instanceof Object) return Object.assign({}, ret);
+      return ret;
+    }
+  }, {
+    key: 'defc',
+    value: function defc(key, val) {
+      this.symtab.set(key, val);
+      return val;
+    }
+  }, {
+    key: 'getc',
+    value: function getc(key) {
+      if (this.symtab.has(key)) return this.symtab.get(key);else if (this.par !== null) return this.par.getc(key);else return null;
+    }
+  }], [{
+    key: 'clone',
+    value: function clone(env) {
+      var e = new Env(null, null, env.par);
+      e.map = env.map;
+      e.rho = env.rho;
+      e.symtab = env.symtab;
+      e.collection = env.collection;
+      return e;
+    }
+  }]);
+  return Env;
+}();
+
+/**
+ * Copyright (c) 2016 Ganesh Prasad Sahoo (GnsP)
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy 
+ * of this software and associated documentation files (the "Software"), to deal 
+ * in the Software without restriction, including without limitation the rights 
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
+ * copies of the Software, and to permit persons to whom the Software is 
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in 
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+ * SOFTWARE.
+ *
+ */
+
 var Stream = function Stream(core, env) {
   var _this = this;
 
@@ -4801,7 +5013,7 @@ var Stream = function Stream(core, env) {
     _this.callbacks.push(cb);
   };
 
-  nextTick(this.core, function (val) {
+  this.push = function (val) {
     _this.value = val;
     var _iteratorNormalCompletion = true;
     var _didIteratorError = false;
@@ -4824,6 +5036,34 @@ var Stream = function Stream(core, env) {
       } finally {
         if (_didIteratorError) {
           throw _iteratorError;
+        }
+      }
+    }
+  };
+
+  nextTick(this.core, function (val) {
+    _this.value = val;
+    var _iteratorNormalCompletion2 = true;
+    var _didIteratorError2 = false;
+    var _iteratorError2 = undefined;
+
+    try {
+      for (var _iterator2 = _this.callbacks[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+        var cb = _step2.value;
+
+        nextTick(cb, null, _this.env, null, val);
+      }
+    } catch (err) {
+      _didIteratorError2 = true;
+      _iteratorError2 = err;
+    } finally {
+      try {
+        if (!_iteratorNormalCompletion2 && _iterator2.return) {
+          _iterator2.return();
+        }
+      } finally {
+        if (_didIteratorError2) {
+          throw _iteratorError2;
         }
       }
     }
@@ -4855,10 +5095,16 @@ var Stream = function Stream(core, env) {
 
 //import {inspect} from 'util';
 
+var _cons = new IronSymbol('_cons');
+var _car = new IronSymbol('_car');
+var _cdr = new IronSymbol('_cdr');
 
 var _quote = new IronSymbol('_quote');
+var _dot = new IronSymbol('_dot');
+
 var _if = new IronSymbol('_if');
 var _def = new IronSymbol('_def');
+var _let = new IronSymbol('_let');
 var _assign_unsafe = new IronSymbol('_assign!');
 var _fn = new IronSymbol('_fn');
 var _begin$1 = new IronSymbol('_begin');
@@ -4866,17 +5112,22 @@ var _sync$1 = new IronSymbol('_sync');
 var _rho = new IronSymbol('_rho');
 
 var _self = new IronSymbol('_self');
-var _null_ = new IronSymbol('_null_');
-var _object_ = new IronSymbol('_{}_');
-var _array_ = new IronSymbol('_[]_');
-var _map_ = new IronSymbol('_map_');
-var _get = new IronSymbol('_get');
-var _set = new IronSymbol('_set');
+var _this = new IronSymbol('_this');
+var _null_ = new IronSymbol('NIL');
+
+var _coll = new IronSymbol('_coll');
+var _seq = new IronSymbol('_seq');
+
+var _map = new IronSymbol('_map');
+
 var _push = new IronSymbol('_push');
 var _pull = new IronSymbol('_pull');
+var _pop = new IronSymbol('_pop');
+
 var _stream = new IronSymbol('_stream');
 var _do = new IronSymbol('_do');
 var _on = new IronSymbol('_on');
+
 var _include$1 = new IronSymbol('_include');
 var _import$1 = new IronSymbol('_import');
 
@@ -4892,8 +5143,63 @@ function evalAsync(x, env) {
   var cb = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : defaultCallback;
 
   if (x instanceof IronSymbol) {
-    if (_self.equal(x)) nextTick(cb, null, env, null, env);else if (_null_.equal(x)) nextTick(cb, null, env, null, null);else if (_object_.equal(x)) nextTick(cb, null, env, null, {});else if (_array_.equal(x)) nextTick(cb, null, env, null, []);else if (_map_.equal(x)) nextTick(cb, null, env, null, new Map());else nextTick(cb, null, env, null, env.get(x));
-  } else if (!(x instanceof Cell)) nextTick(cb, null, env, null, x);else if (_quote.equal(x.car)) nextTick(cb, null, env, null, x.cdr.car);else if (_if.equal(x.car)) {
+    if (_self.equal(x)) nextTick(cb, null, env, null, env);
+    if (_this.equal(x)) nextTick(cb, null, env, null, env.collection);else if (_null_.equal(x)) nextTick(cb, null, env, null, null);else nextTick(cb, null, env, null, env.get(x));
+  } else if (!(x instanceof Cell)) nextTick(cb, null, env, null, x);else if (_quote.equal(x.car)) nextTick(cb, null, env, null, x.cdr.car);else if (_cons.equal(x.car)) {
+    (function () {
+      var car = x.cdr.car;
+      var cdr = x.cdr.cdr.car;
+      nextTick(evalAsync, car, env, function (err, env, _, car) {
+        nextTick(evalAsync, cdr, env, function (err, env, _, cdr) {
+          var list = Cell.cons(car, cdr);
+          nextTick(cb, null, env, null, list);
+        });
+      });
+    })();
+  } else if (_car.equal(x.car) || _cdr.equal(x.car)) {
+    nextTick(evalAsync, x.cdr.car, env, function (err, env, _, list) {
+      if (list instanceof Cell) {
+        if (_car.equal(x.car)) nextTick(cb, null, env, null, list.car);
+        if (_cdr.equal(x.car)) nextTick(cb, null, env, null, list.cdr);
+      } else nextTick(cb, null, env, null, null);
+    });
+  } else if (_seq.equal(x.car)) {
+    var args = [];
+    while (x.cdr instanceof Cell) {
+      x = x.cdr;
+      args.push(x.car);
+    }
+
+    var evalArg = function evalArg(arg, _cb) {
+      nextTick(evalAsync, arg, env, function (err, env, _, argval) {
+        nextTick(_cb, err, argval);
+      });
+    };
+
+    mapLimit(args, 32, evalArg, function (err, argvals) {
+      nextTick(cb, err, env, null, new Sequence(argvals));
+    });
+  } else if (_dot.equal(x.car)) {
+    (function () {
+      var args = [];
+      var cmd = x.ctx;
+      while (x.cdr instanceof Cell) {
+        x = x.cdr;
+        args.push(x.car);
+      }
+
+      var evalArg = function evalArg(arg, _cb) {
+        nextTick(evalAsync, arg, env, function (err, env, _, argval) {
+          nextTick(_cb, err, argval);
+        });
+      };
+
+      mapLimit(args, 32, evalArg, function (err, argvals) {
+        var ref = new (Function.prototype.bind.apply(Reference, [null].concat([cmd], toConsumableArray(argvals))))();
+        nextTick(cb, err, env, null, ref.value);
+      });
+    })();
+  } else if (_if.equal(x.car)) {
     (function () {
       var test = x.cdr.car;
       var then = x.cdr.cdr.car;
@@ -4904,14 +5210,23 @@ function evalAsync(x, env) {
         nextTick(evalAsync, expr, env, cb);
       });
     })();
-  } else if (_def.equal(x.car)) {
+  } else if (_def.equal(x.car) || _let.equal(x.car)) {
     (function () {
       var name = x.cdr.car;
       var val = x.cdr.cdr.car;
-      nextTick(evalAsync, val, env, function (err, _env, _, value) {
-        var sts = env.bind(name, value);
-        if (!sts) nextTick(cb, 'can _def only inside a _begin block');else nextTick(cb, null, env, null, value);
-      });
+      if (name instanceof IronSymbol) {
+        nextTick(evalAsync, val, env, function (err, _env, _, value) {
+          var sts = env.bind(name, value);
+          if (!sts) nextTick(cb, 'can _def only inside a _begin block');else nextTick(cb, null, env, null, value);
+        });
+      } else if (name instanceof Cell && _dot.equal(name.car)) {
+        name.ctx = 'set';
+        nextTick(evalAsync, name, env, function (err, _env, _, ref) {
+          nextTick(evalAsync, val, env, function (err, _env, _, value) {
+            nextTick(cb, err, env, null, ref.value(val));
+          });
+        });
+      } else nextTick(cb, "" + Cell.stringify(name) + "is not a valid LValue, Symbols and References are the only valid LValues");
     })();
   } else if (_assign_unsafe.equal(x.car)) {
     (function () {
@@ -4920,71 +5235,6 @@ function evalAsync(x, env) {
       nextTick(evalAsync, val, env, function (err, _env, _, value) {
         var sts = env.find(name).bind(name, value);
         if (!sts) nextTick(cb, 'can _def only inside a _begin block');else nextTick(cb, null, env, null, value);
-      });
-    })();
-  } else if (_get.equal(x.car)) {
-    (function () {
-      var obj = x.cdr.car;
-      var key = x.cdr.cdr.car;
-
-      nextTick(evalAsync, obj, env, function (_err, _env, _cb, _obj) {
-        nextTick(evalAsync, key, env, function (_err, _env, _cb, _key) {
-          var obj = _obj;
-          var key = _key;
-          var err = _err;
-
-          //console.log (inspect (key));
-
-          if (obj instanceof Object && obj.__itype__ === "env") {
-            if (key instanceof Object && key.type === "ironsymbol") {
-              //console.log ('_____DEBUG_______\n'+ inspect(obj));
-              nextTick(cb, err, env, null, obj.map.get(key.symbol));
-            } else nextTick(cb, err, env, null, key);
-          } else if (obj instanceof Map) {
-            nextTick(cb, err, env, null, obj.get(key));
-          } else if (obj instanceof Array) {
-            nextTick(cb, err, env, null, obj[key]);
-          } else if (obj instanceof Object) {
-            if (key instanceof Object && key.type === "ironsymbol") nextTick(cb, err, env, null, obj[key.symbol]);else nextTick(cb, err, env, null, obj[key]);
-          } else nextTick(cb, new IError('Can not _get from ' + obj));
-        });
-      });
-    })();
-  } else if (_set.equal(x.car)) {
-    (function () {
-      var obj = x.cdr.car;
-      var key = x.cdr.cdr.car;
-      var val = x.cdr.cdr.cdr.car;
-
-      nextTick(evalAsync, obj, env, function (_err, _env, _cb, _obj) {
-        nextTick(evalAsync, key, env, function (_err, _env, _cb, _key) {
-          nextTick(evalAsync, key, env, function (_err, _env, _cb, _val) {
-            var obj = _obj;
-            var key = _key;
-            var val = _val;
-            var err = _err;
-
-            if (obj instanceof Object && obj.__itype__ === "env") {
-              nextTick(cb, new IError('can not set to a scope outside the scope'));
-            } else if (obj instanceof Map) {
-              nextTick(cb, null, env, null, obj.set(key, val));
-            } else if (obj instanceof Array) {
-              if (isNaN(Number(key))) nextTick(cb, new IError('Arrays can have integers as keys'));else {
-                var _key2 = Number(_key2);
-                if (_key2 % 1 === 0) {
-                  if (_key2 < 0) _key2 = obj.length + _key2;
-                  if (_key2 < 0) nextTick(cb, new IError('can not _set ' + obj + ' [' + (_key2 - obj.length) + ']'));
-                  obj[_key2] = val;
-                  nextTick(cb, null, env, null, obj);
-                } else nextTick(cb, new IError('Arrays can have integers as keys'));
-              }
-            } else if (obj instanceof Object) {
-              if (key instanceof Object && key.type === "ironsymbol") key = key.symbol;
-              obj[key] = val;
-              nextTick(cb, null, env, null, obj);
-            } else nextTick(cb, new IError('Can not _set on ' + obj));
-          });
-        });
       });
     })();
   } else if (_push.equal(x.car)) {
@@ -4997,10 +5247,10 @@ function evalAsync(x, env) {
           var arr = _arr;
           var val = _val;
 
-          if (arr instanceof Array) {
+          if (arr instanceof Array || arr instanceof Object && (arr.__itype__ === 'sequence' || arr.__itype__ === 'stream')) {
             arr.push(val);
             nextTick(cb, null, env, null, arr);
-          } else nextTick(cb, new IError('Can _push only on Arrays'));
+          } else nextTick(cb, new IError('Can _push to Arrays, Sequences and Streams'));
         });
       });
     })();
@@ -5019,13 +5269,14 @@ function evalAsync(x, env) {
         if (sts instanceof IError) nextTick(cb, sts);else nextTick(cb, null, env, null, env);
       });
     })();
-  } else if (_begin$1.equal(x.car) || _sync$1.equal(x.car)) {
+  } else if (_begin$1.equal(x.car) || _sync$1.equal(x.car) || _coll.equal(x.car)) {
     (function () {
       var root = x.cdr;
       var cur = root;
+      var isColl = _coll.equal(x.car);
 
       var _env = env;
-      if (_begin$1.equal(x.car)) _env = new Env(null, null, env);
+      if (_begin$1.equal(x.car)) _env = new Env(null, null, env);else if (_coll.equal(x.car)) _env = new Env(null, null, env, true);
 
       var unsyncFlag = false;
       if (!_env.syncLock) {
@@ -5041,7 +5292,7 @@ function evalAsync(x, env) {
         });
       }, function (err, res) {
         if (unsyncFlag) _env.unsync();
-        nextTick(cb, err, _env, null, res);
+        if (isColl) nextTick(cb, err, _env, null, _env.collection);else nextTick(cb, err, _env, null, res);
       });
     })();
   } else if (_stream.equal(x.car)) {
@@ -5118,7 +5369,12 @@ function evalAsync(x, env) {
   } else if (_pull.equal(x.car)) {
     var stream = x.cdr.car;
     nextTick(evalAsync, stream, env, function (err, _env, _, s) {
-      if (s instanceof Object && s.__itype__ === 'stream') nextTick(cb, null, env, null, s.value);else if (s instanceof Array) nextTick(cb, null, env, null, s.shift());else nextTick(cb, new IError("can pull from streams and arrays only"));
+      if (s instanceof Object && s.__itype__ === 'stream') nextTick(cb, null, env, null, s.value);else if (s instanceof Array) nextTick(cb, null, env, null, s.shift());else if (s instanceof Object && s.__itype__ === 'sequence') nextTick(cb, null, env, null, s.pull());else nextTick(cb, new IError("can pull from Streams, Arrays and Sequences"));
+    });
+  } else if (_pop.equal(x.car)) {
+    var _arr2 = x.cdr.car;
+    nextTick(evalAsync, _arr2, env, function (err, _env, _, arr) {
+      if (arr instanceof Array || arr instanceof Object && arr.__itype__ === 'sequence') nextTick(cb, null, env, null, arr.pop());else nextTick(cb, new IError("can pop from Arrays and Sequences"));
     });
   } else if (_do.equal(x.car)) {
     var _stream2 = x.cdr.car;
@@ -5173,8 +5429,11 @@ function evalAsync(x, env) {
                 });
               }, function (err, argvals) {
                 var scope = new Env(Cell.list(params), Cell.list(argvals), _env);
-                //console.log (scope);
+                console.log(Cell.stringify(body));
+                console.log(params, argvals);
+                // TODO
                 nextTick(evalAsync, body, scope, function (err, _, __, val) {
+                  console.log('Debug ________: ' + val);
                   nextTick(cb, err, _env, null, val);
                 });
               });
@@ -5195,18 +5454,18 @@ function evalAsync(x, env) {
           _args.push(x.car);
         }
 
-        var evalArg = function evalArg(arg, _cb) {
+        var _evalArg = function _evalArg(arg, _cb) {
           nextTick(evalAsync, arg, env, function (err, env, _, argval) {
             nextTick(_cb, err, argval);
           });
         };
 
-        mapLimit(_args, 32, evalArg, function (err, argvals) {
+        mapLimit(_args, 32, _evalArg, function (err, argvals) {
           //console.log ('\n\n\n\ndebug: ', argvals, '\n', env, '\n\n');
           var _env = new Env(null, null, env);
           nextTick.apply(undefined, [func, err, _env, cb].concat(toConsumableArray(argvals)));
         });
-      } else nextTick(cb, new IError('can not evaluate list ' + x));
+      } else nextTick(cb, new IError('can not evaluate list ' + JSON.stringify(x)));
     });
   }
 }
@@ -5491,7 +5750,39 @@ var Lexer = function () {
         } else return this.readSymbol(pre);
       } else {
         var t = this.readSymbol(eps);
-        if (isNaN(Number(t.symbol))) return t;else return Number(t.symbol);
+        if (isNaN(Number(t.symbol))) {
+          var arr = t.symbol.split('.');
+          if (arr.length === 1) return t;
+
+          if (arr[0] === '') arr[0] = new IronSymbol('_this');
+          var ret = [];
+          var _iteratorNormalCompletion = true;
+          var _didIteratorError = false;
+          var _iteratorError = undefined;
+
+          try {
+            for (var _iterator = arr[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+              var x = _step.value;
+
+              if (isNaN(Number(x))) ret.push(x);else ret.push(Number(x));
+            }
+          } catch (err) {
+            _didIteratorError = true;
+            _iteratorError = err;
+          } finally {
+            try {
+              if (!_iteratorNormalCompletion && _iterator.return) {
+                _iterator.return();
+              }
+            } finally {
+              if (_didIteratorError) {
+                throw _iteratorError;
+              }
+            }
+          }
+
+          return ret;
+        } else return Number(t.symbol);
       }
     }
   }, {
@@ -5526,7 +5817,7 @@ var Lexer = function () {
   }, {
     key: 'isOp',
     value: function isOp(ch) {
-      return (/[\(\)\[\]\']/g.test(ch)
+      return (/[\(\)\{\}\[\]\']/g.test(ch)
       );
     }
   }, {
@@ -5585,7 +5876,7 @@ var Parser = function () {
       val = this.parseAtom();
 
       while (val !== end && val !== Lexer.eps) {
-        if (end === ')' && val === ']' || end === ']' && val === ')') this.error('Parenthesis/Bracket mismatch');
+        if (val === ')' || val === ']' || val === '}') this.error('Parenthesis/Bracket mismatch');
 
         cur.cdr = new Cell(val);
         cur = cur.cdr;
@@ -5599,7 +5890,11 @@ var Parser = function () {
       if (this.lex.eof()) return Lexer.eps;
       var token = this.lex.next();
 
-      if (token === '(') return this.parseList(')');else if (token === "'") return Cell.cons(new IronSymbol('_quote'), new Cell(this.parseAtom()));else if (token === '[') return Cell.cons(new IronSymbol('_self'), this.parseList(']'));else return token;
+      if (token === '(') return this.parseList(')');else if (token === "'") return Cell.cons(new IronSymbol('_quote'), new Cell(this.parseAtom()));else if (token === '[') return Cell.cons(new IronSymbol('_self'), this.parseList(']'));else if (token === '{') return Cell.cons(new IronSymbol('_coll'), this.parseList('}'));else if (token instanceof Array) {
+        var cell = Cell.cons(new IronSymbol('_dot'), Cell.list(token));
+        cell.ctx = 'get';
+        return cell;
+      } else return token;
     }
   }, {
     key: 'error',
@@ -5710,7 +6005,7 @@ function echo() {
 }
 
 var globalenv = function () {
-  var _globalenv = new Env(null, null, null);
+  var _globalenv = new Env(null, null, null, true);
   _globalenv.sync();
   _globalenv.bind(new IronSymbol('_fx'), fx);
   _globalenv.bind(new IronSymbol('_eval'), _eval$1);

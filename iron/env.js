@@ -25,12 +25,15 @@
 import Cell from './cell.js';
 import ensure from './ensure.js';
 import IronSymbol from './symbol.js';
+
 import Rho from './rho.js';
+import {Collection} from './collection.js';
+
 import IError from './errors.js';
 //import {inspect} from 'util';
 
 export default class Env {
-  constructor (param, arg, par) {
+  constructor (param, arg, par, newcollection=false) {
     this.__itype__ = "env";
     this.map = new Map();
     this.par = par; 
@@ -38,14 +41,18 @@ export default class Env {
     this.bind (param, arg);
     this.syncLock = false;
     this.rho = new Rho(this);
-    this.constTable = new Map();
+    this.symtab = new Map();
+
+    if (newcollection) this.collection = new Collection();
+    else this.collection = this.par.collection;
   }
   
   static clone (env) {
     let e = new Env(null, null, env.par);
     e.map = env.map;
     e.rho = env.rho;
-    e.constTable = env.constTable;
+    e.symtab = env.symtab;
+    e.collection = env.collection;
     return e;
   }
 
@@ -106,18 +113,12 @@ export default class Env {
   }
 
   defc (key, val) {
-    this.constTable.set(key, val);
-    return val;
-  }
-
-  setc (key, val) {
-    if (this.constTable.has(key)) return this.constTable.get(key);
-    this.constTable.set(key, val);
+    this.symtab.set(key, val);
     return val;
   }
 
   getc (key) {
-    if (this.constTable.has(key)) return this.constTable.get(key);
+    if (this.symtab.has(key)) return this.symtab.get(key);
     else if (this.par !== null) return this.par.getc(key);
     else return null;
   }

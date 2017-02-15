@@ -24,10 +24,13 @@ _begin
 
   (_rho '(@a + @b) (+ @a @b))
   (_rho '(@a + @b + @c) (+ [@a + @b] @c))
-  (_echo [1 + 2 + 3])
+  
+  (_echo "debug")
+  (_echo (_self 1 + 2 + 3))
+  (_echo (! 5))
 
   (_rho '(@n !) (! @n) )
-  (_echo [5 !])
+  ;(_echo [5 !])
 
 
   (_rho '(say hello to @name) (_echo (concat "Hello " @name "! Have a nice day.")))
@@ -35,15 +38,15 @@ _begin
   
   (_def me "GNSP@GNEOS")
 
-  [say hello to me]
-  [say bye to me]
+  ;[say hello to me]
+  ;[say bye to me]
 
   (_rho '(@a should be @b) (_echo (concat @a " should be " @b " : " (_if (== @a @b) "passed" "failed" ) ) ) )
 
-  [(+ 1 2) should be 3]
-  [[5 !] should be 120]
-  [(twice 8) should be 16]
-  [(twice 4) should be 3]
+  ;[(+ 1 2) should be 3]
+  ;[[5 !] should be 120]
+  ;[(twice 8) should be 16]
+  ;[(twice 4) should be 3]
 
 
   (_def multMod (_eval
@@ -55,8 +58,6 @@ _begin
   ))
 
   (_echo (multMod 2 * 3))
-  (_def myFunc (_get multMod myFunc))
-  (myFunc 5)
 
 
   (_import "./test1.is" _all)
@@ -71,7 +72,7 @@ _begin
    }@
   )
 
-  (@{ $scope.setc('testKey', 'Testing const interopTable'); }@)
+  (@{ $scope.defc('testKey', 'Testing const interopTable'); }@)
   
   (_def twiceNums (_stream * 2 (natstream)))
   (_def echoStream (_fn (stream) (_stream _echo (stream) ) ) )
@@ -79,7 +80,7 @@ _begin
 
 
   (_include "./testInclude.is")
-  [does the include work ?]
+  ;[does the include work ?]
 
   (@{ console.log($scope.getc('testKey')); }@)
 
