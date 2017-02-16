@@ -82,7 +82,7 @@ const defaultCallback = (err, env) => {
 export default function evalAsync (x, env, cb=defaultCallback ) {
   if (x instanceof IronSymbol) {
     if (_self.equal(x)) nextTick (cb, null, env, null, env);
-    if (_this.equal(x)) nextTick (cb, null, env, null, env.collection);
+    else if (_this.equal(x)) nextTick (cb, null, env, null, env.collection);
     else if (_null_.equal(x)) nextTick (cb, null, env, null, null);
     else nextTick (cb, null, env, null, env.get(x));
   }
@@ -127,6 +127,9 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
   else if (_dot.equal(x.car)) {
     let args = [];
     let cmd = x.ctx;
+
+    //console.log('### Ref: '+x.ctx+' '+Cell.stringify(x));
+
     while (x.cdr instanceof Cell) {
       x = x.cdr;
       args.push (x.car);
@@ -140,6 +143,7 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
     
     mapLimit (args, 32, evalArg, (err, argvals) => {
       let ref = new Reference (cmd, ...argvals);
+      //console.log('### Return of Ref: '+ref.value);
       nextTick (cb, err, env, null, ref.value);
     });
   }
@@ -166,9 +170,11 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
     }
     else if (name instanceof Cell && _dot.equal(name.car)) {
       name.ctx = 'set';
+      //console.log(Cell.stringify(name));
       nextTick (evalAsync, name, env, (err, _env, _, ref) => {
         nextTick (evalAsync, val, env, (err, _env, _, value) => {
-          nextTick (cb, err, env, null, ref.value(val) );
+          //console.log(Cell.stringify(ref));
+          nextTick (cb, err, env, null, ref(value) );
         });
       });
     }
@@ -360,6 +366,8 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
   else {
     nextTick (evalAsync, x.car, env, (err, env, _, func) => {
       //console.log (''+x.car +'\n\n'+inspect(func));
+      //console.log("### debug ### "+Cell.stringify(func));
+      
       if (func instanceof Object && func.__itype__ === "env") {
         //console.log ('__debug__\n\n ' + inspect(func));
         let acell = x.cdr;
@@ -384,11 +392,10 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 
           (err, argvals) => {
             let scope = new Env (Cell.list(params), Cell.list(argvals), _env);
-            console.log (Cell.stringify(body));
-            console.log (params, argvals);
-            // TODO
+            //console.log (Cell.stringify(body));
+            //console.log (params, argvals);
             nextTick (evalAsync, body, scope, (err, _, __, val) => {
-              console.log('Debug ________: '+val);
+              //console.log('Debug ________: '+val);
               nextTick (cb, err, _env, null, val);
             });
           });
@@ -424,7 +431,9 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
         });
 
       }
-      else nextTick (cb, new IError ('can not evaluate list '+JSON.stringify(x)));
+      else {
+        nextTick (cb, new IError ('can not evaluate list '+Cell.stringify(x)));
+      }
     });
   }
 

@@ -4,20 +4,32 @@
 ; This is a comment. And all comments should be ignored.
 ; PS Comments start with ';' and end with the newline.
 
+
+
+
 _begin
+  
+
   ( @{
     console.log(vdom);  
   }@ )
 
+  
+
   (_include "stdlib")
 
+  
+  
   (_def a 1) 
   (_echo a) 
   (_echo (+ a a))
 
+  
   (_def twice (_fn (n) (+ n n)))
   (_echo (twice (+ 1 3)))
 
+  
+  
   (_def ! (_fn (n) 
     (_if (== n 0) 1 (* n (! (- n 1) ) ) ) 
   ))
@@ -25,12 +37,13 @@ _begin
   (_rho '(@a + @b) (+ @a @b))
   (_rho '(@a + @b + @c) (+ [@a + @b] @c))
   
-  (_echo "debug")
-  (_echo (_self 1 + 2 + 3))
+  (_self 1 + 2 + 3)
   (_echo (! 5))
 
   (_rho '(@n !) (! @n) )
-  ;(_echo [5 !])
+  (_echo [5 !])
+
+
 
 
   (_rho '(say hello to @name) (_echo (concat "Hello " @name "! Have a nice day.")))
@@ -38,15 +51,21 @@ _begin
   
   (_def me "GNSP@GNEOS")
 
-  ;[say hello to me]
-  ;[say bye to me]
+  [say hello to me]
+  [say bye to me]
+
+
+
 
   (_rho '(@a should be @b) (_echo (concat @a " should be " @b " : " (_if (== @a @b) "passed" "failed" ) ) ) )
 
-  ;[(+ 1 2) should be 3]
-  ;[[5 !] should be 120]
-  ;[(twice 8) should be 16]
-  ;[(twice 4) should be 3]
+  [(+ 1 2) should be 3]
+  [[5 !] should be 120]
+  [(twice 8) should be 16]
+  [(twice 4) should be 3]
+
+
+
 
 
   (_def multMod (_eval
@@ -56,32 +75,73 @@ _begin
         (_def myFunc (_fn (x) (_echo x)))
     ]@
   ))
-
   (_echo (multMod 2 * 3))
+
+
 
 
   (_import "./test1.is" _all)
   (_echo name)
-
   (_echo '( (IronScript is) quite ready))
 
   
+
+
+
+  (_include "./testInclude.is")
+  [does the include work ?]
+
+
+
+  (@{ $scope.defc('testKey', 'Testing const interopTable'); }@)
+  (@{ console.log($scope.getc('testKey')); }@)
+
+
+
+
+  (_def myColl {
+    (_let .name "Ganesh")
+    (_let .roll "112CS0558")
+  })
+
+  (_echo myColl.name myColl.roll)
+  (_def myColl.name "Ganesh Prasad")
+  (_def myColl.contacts (_seq "9668588771" "9040117018"))
+
+  (_echo myColl.name myColl.contacts.1)
+
+
+  
+
+  (_def clock {
+    (_def seconds @{
+      let s = args[0] || 1;
+      let i = 1;
+      let inter = setInterval (() => { $yield(i++); }, s*1000);
+    }@)
+
+    (_def .seconds-stream (_stream seconds 1))
+  })
+
+
+  ;(_echo (clock.seconds-stream))
+  ;(_do (_on clock.seconds-stream (_echo (_pull clock.seconds-stream) ) ) )
+
+
+
+
+
+
+
+
+
   (_def natstream @{ 
     let i = 1;
     setInterval (() => { $yield(i++); }, 1000);
    }@
   )
-
-  (@{ $scope.defc('testKey', 'Testing const interopTable'); }@)
   
   (_def twiceNums (_stream * 2 (natstream)))
   (_def echoStream (_fn (stream) (_stream _echo (stream) ) ) )
-  (_do (echoStream twiceNums))
-
-
-  (_include "./testInclude.is")
-  ;[does the include work ?]
-
-  (@{ console.log($scope.getc('testKey')); }@)
-
+  (_do (echoStream clock.seconds-stream))
 

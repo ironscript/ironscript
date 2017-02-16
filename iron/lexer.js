@@ -142,6 +142,7 @@ export default class Lexer {
         if (arr.length === 1) return t;
         
         if (arr[0] === '') arr[0] = new IronSymbol('_this');
+        else arr[0] = new IronSymbol(arr[0]);
         let ret = []; 
         for (let x of arr) {
           if (isNaN(Number(x))) ret.push(x);

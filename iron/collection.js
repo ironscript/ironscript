@@ -44,7 +44,9 @@ export class Reference {
   get () {
     let obj = this.obj;
     for (let key of this.keys) {
-      if (obj instanceof Store) obj = obj.get (key);
+      if (obj instanceof Object && (obj.__itype__ === 'collection' || obj.__itype__ === 'sequence') ) {
+        obj = obj.get (key);
+      }
       else if (obj instanceof Object) obj = obj[key];
       else return undefined;
     }
@@ -54,11 +56,14 @@ export class Reference {
   set (val) {
     let obj = this.obj;
     for (let key of this.keys.slice(0,-1)) {
-      if (obj instanceof Store) obj = obj.get(key);
+      //if (obj instanceof Store) obj = obj.get(key);
+      if (obj instanceof Object && (obj.__itype__ === 'collection' || obj.__itype__ === 'sequence') )
+        obj = obj.get(key);
       else if (obj instanceof Object) obj = obj[key];
       else return undefined;
     }
-    if (obj instanceof Store) {
+    //if (obj instanceof Store) {
+    if (obj instanceof Object && (obj.__itype__ === 'collection' || obj.__itype__ === 'sequence') ) {
       obj.set(this.keys[this.keys.length-1], val);
       return val;
     }
@@ -76,20 +81,21 @@ export class Collection extends Store{
     this.__itype__ = 'collection'; 
     if (obj) this.obj = obj;
     else this.obj = Object.create(null);
-  }
+  
 
-  has (key) { return this.obj[key] !== undefined; }
+    this.has = (key) => { return this.obj[key] !== undefined; }
   
-  get (key) {
-    if (typeof key !== 'string') return undefined;
-    if (this.has(key)) return this.obj[key];
-    return undefined;
-  }
+    this.get = (key) => {
+      if (typeof key !== 'string') return undefined;
+      if (this.has(key)) return this.obj[key];
+      return undefined;
+    }
   
-  set (key, val) {
-    if (typeof key !== 'string') return undefined;
-    this.obj[key] = val;
-    return this.obj;
+    this.set = (key, val) => {
+      if (typeof key !== 'string') return undefined;
+      this.obj[key] = val;
+      return this.obj;
+    }
   }
 }
 
@@ -99,32 +105,32 @@ export class Sequence extends Store{
     this.__itype__ = 'sequence';
     if (arr) this.arr = arr;
     else this.arr = [];
-  }
   
-  get (ind) {
-    if (parseInt(ind) === Number(ind)) return this.arr[ind];
-    return undefined;
-  }
-
-  set (ind, val) {
-    if (parseInt(ind) === Number(ind)) {
-      this.arr[ind] = val;
-      return this.arr;
+    this.get = (ind) => {
+      if (parseInt(ind) === Number(ind)) return this.arr[ind];
+      return undefined;
     }
-    return undefined;
-  }
 
-  push (val) {
-    this.arr.push(val);
-    return val;
-  }
+    this.set = (ind, val) => {
+      if (parseInt(ind) === Number(ind)) {
+        this.arr[ind] = val;
+        return this.arr;
+      }
+      return undefined;
+    }
 
-  pull () {
-    return this.arr.shift();
-  }
+    this.push = (val) => {
+      this.arr.push(val);
+      return val;
+    }
 
-  pop () {
-    return this.arr.pop();
+    this.pull = () => {
+      return this.arr.shift();
+    }
+
+    this.pop = () => {
+      return this.arr.pop();
+    }
   }
 }
 

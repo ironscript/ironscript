@@ -3802,7 +3802,7 @@ consoleFunc('log');
  * Invoked with (err, result).
  */
 
-function has$1(obj, key) {
+function has(obj, key) {
     return key in obj;
 }
 
@@ -5083,7 +5083,9 @@ var Reference = function () {
         for (var _iterator = this.keys[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
           var key = _step.value;
 
-          if (obj instanceof Store) obj = obj.get(key);else if (obj instanceof Object) obj = obj[key];else return undefined;
+          if (obj instanceof Object && (obj.__itype__ === 'collection' || obj.__itype__ === 'sequence')) {
+            obj = obj.get(key);
+          } else if (obj instanceof Object) obj = obj[key];else return undefined;
         }
       } catch (err) {
         _didIteratorError = true;
@@ -5114,8 +5116,10 @@ var Reference = function () {
         for (var _iterator2 = this.keys.slice(0, -1)[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
           var key = _step2.value;
 
-          if (obj instanceof Store) obj = obj.get(key);else if (obj instanceof Object) obj = obj[key];else return undefined;
+          //if (obj instanceof Store) obj = obj.get(key);
+          if (obj instanceof Object && (obj.__itype__ === 'collection' || obj.__itype__ === 'sequence')) obj = obj.get(key);else if (obj instanceof Object) obj = obj[key];else return undefined;
         }
+        //if (obj instanceof Store) {
       } catch (err) {
         _didIteratorError2 = true;
         _iteratorError2 = err;
@@ -5131,7 +5135,7 @@ var Reference = function () {
         }
       }
 
-      if (obj instanceof Store) {
+      if (obj instanceof Object && (obj.__itype__ === 'collection' || obj.__itype__ === 'sequence')) {
         obj.set(this.keys[this.keys.length - 1], val);
         return val;
       } else if (obj instanceof Object) {
@@ -5162,29 +5166,25 @@ var Collection = function (_Store) {
 
     _this2.__itype__ = 'collection';
     if (obj) _this2.obj = obj;else _this2.obj = Object.create(null);
+
+    _this2.has = function (key) {
+      return _this2.obj[key] !== undefined;
+    };
+
+    _this2.get = function (key) {
+      if (typeof key !== 'string') return undefined;
+      if (_this2.has(key)) return _this2.obj[key];
+      return undefined;
+    };
+
+    _this2.set = function (key, val) {
+      if (typeof key !== 'string') return undefined;
+      _this2.obj[key] = val;
+      return _this2.obj;
+    };
     return _this2;
   }
 
-  createClass(Collection, [{
-    key: 'has',
-    value: function has(key) {
-      return this.obj[key] !== undefined;
-    }
-  }, {
-    key: 'get',
-    value: function get(key) {
-      if (typeof key !== 'string') return undefined;
-      if (this.has(key)) return this.obj[key];
-      return undefined;
-    }
-  }, {
-    key: 'set',
-    value: function set(key, val) {
-      if (typeof key !== 'string') return undefined;
-      this.obj[key] = val;
-      return this.obj;
-    }
-  }]);
   return Collection;
 }(Store);
 
@@ -5198,41 +5198,35 @@ var Sequence = function (_Store2) {
 
     _this3.__itype__ = 'sequence';
     if (arr) _this3.arr = arr;else _this3.arr = [];
+
+    _this3.get = function (ind) {
+      if (parseInt(ind) === Number(ind)) return _this3.arr[ind];
+      return undefined;
+    };
+
+    _this3.set = function (ind, val) {
+      if (parseInt(ind) === Number(ind)) {
+        _this3.arr[ind] = val;
+        return _this3.arr;
+      }
+      return undefined;
+    };
+
+    _this3.push = function (val) {
+      _this3.arr.push(val);
+      return val;
+    };
+
+    _this3.pull = function () {
+      return _this3.arr.shift();
+    };
+
+    _this3.pop = function () {
+      return _this3.arr.pop();
+    };
     return _this3;
   }
 
-  createClass(Sequence, [{
-    key: 'get',
-    value: function get(ind) {
-      if (parseInt(ind) === Number(ind)) return this.arr[ind];
-      return undefined;
-    }
-  }, {
-    key: 'set',
-    value: function set(ind, val) {
-      if (parseInt(ind) === Number(ind)) {
-        this.arr[ind] = val;
-        return this.arr;
-      }
-      return undefined;
-    }
-  }, {
-    key: 'push',
-    value: function push(val) {
-      this.arr.push(val);
-      return val;
-    }
-  }, {
-    key: 'pull',
-    value: function pull() {
-      return this.arr.shift();
-    }
-  }, {
-    key: 'pop',
-    value: function pop() {
-      return this.arr.pop();
-    }
-  }]);
   return Sequence;
 }(Store);
 
@@ -5529,8 +5523,7 @@ function evalAsync(x, env) {
   var cb = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : defaultCallback;
 
   if (x instanceof IronSymbol) {
-    if (_self.equal(x)) nextTick(cb, null, env, null, env);
-    if (_this.equal(x)) nextTick(cb, null, env, null, env.collection);else if (_null_.equal(x)) nextTick(cb, null, env, null, null);else nextTick(cb, null, env, null, env.get(x));
+    if (_self.equal(x)) nextTick(cb, null, env, null, env);else if (_this.equal(x)) nextTick(cb, null, env, null, env.collection);else if (_null_.equal(x)) nextTick(cb, null, env, null, null);else nextTick(cb, null, env, null, env.get(x));
   } else if (!(x instanceof Cell)) nextTick(cb, null, env, null, x);else if (_quote.equal(x.car)) nextTick(cb, null, env, null, x.cdr.car);else if (_cons.equal(x.car)) {
     (function () {
       var car = x.cdr.car;
@@ -5569,6 +5562,9 @@ function evalAsync(x, env) {
     (function () {
       var args = [];
       var cmd = x.ctx;
+
+      //console.log('### Ref: '+x.ctx+' '+Cell.stringify(x));
+
       while (x.cdr instanceof Cell) {
         x = x.cdr;
         args.push(x.car);
@@ -5582,6 +5578,7 @@ function evalAsync(x, env) {
 
       mapLimit(args, 32, evalArg, function (err, argvals) {
         var ref = new (Function.prototype.bind.apply(Reference, [null].concat([cmd], toConsumableArray(argvals))))();
+        //console.log('### Return of Ref: '+ref.value);
         nextTick(cb, err, env, null, ref.value);
       });
     })();
@@ -5607,9 +5604,11 @@ function evalAsync(x, env) {
         });
       } else if (name instanceof Cell && _dot.equal(name.car)) {
         name.ctx = 'set';
+        //console.log(Cell.stringify(name));
         nextTick(evalAsync, name, env, function (err, _env, _, ref) {
           nextTick(evalAsync, val, env, function (err, _env, _, value) {
-            nextTick(cb, err, env, null, ref.value(val));
+            //console.log(Cell.stringify(ref));
+            nextTick(cb, err, env, null, ref(value));
           });
         });
       } else nextTick(cb, "" + Cell.stringify(name) + "is not a valid LValue, Symbols and References are the only valid LValues");
@@ -5792,6 +5791,8 @@ function evalAsync(x, env) {
   } else {
     nextTick(evalAsync, x.car, env, function (err, env, _, func) {
       //console.log (''+x.car +'\n\n'+inspect(func));
+      //console.log("### debug ### "+Cell.stringify(func));
+
       if (func instanceof Object && func.__itype__ === "env") {
         (function () {
           //console.log ('__debug__\n\n ' + inspect(func));
@@ -5815,11 +5816,10 @@ function evalAsync(x, env) {
                 });
               }, function (err, argvals) {
                 var scope = new Env(Cell.list(params), Cell.list(argvals), _env);
-                console.log(Cell.stringify(body));
-                console.log(params, argvals);
-                // TODO
+                //console.log (Cell.stringify(body));
+                //console.log (params, argvals);
                 nextTick(evalAsync, body, scope, function (err, _, __, val) {
-                  console.log('Debug ________: ' + val);
+                  //console.log('Debug ________: '+val);
                   nextTick(cb, err, _env, null, val);
                 });
               });
@@ -5851,7 +5851,9 @@ function evalAsync(x, env) {
           var _env = new Env(null, null, env);
           nextTick.apply(undefined, [func, err, _env, cb].concat(toConsumableArray(argvals)));
         });
-      } else nextTick(cb, new IError('can not evaluate list ' + JSON.stringify(x)));
+      } else {
+        nextTick(cb, new IError('can not evaluate list ' + Cell.stringify(x)));
+      }
     });
   }
 }
@@ -6140,7 +6142,7 @@ var Lexer = function () {
           var arr = t.symbol.split('.');
           if (arr.length === 1) return t;
 
-          if (arr[0] === '') arr[0] = new IronSymbol('_this');
+          if (arr[0] === '') arr[0] = new IronSymbol('_this');else arr[0] = new IronSymbol(arr[0]);
           var ret = [];
           var _iteratorNormalCompletion = true;
           var _didIteratorError = false;
