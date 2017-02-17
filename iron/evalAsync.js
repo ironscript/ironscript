@@ -28,31 +28,47 @@ import Stream from './stream.js';
 import {fn} from './higher.js';
 import IronSymbol from './symbol.js';
 import IError from './errors.js';
-import {nextTick, mapLimit, whilst} from 'async-es';
+import {nextTick, mapLimit, whilst, filterLimit} from 'async-es';
+
+
+import {Reference, Collection, Sequence} from './collection.js';
+
 //import {inspect} from 'util';
 
+const _cons = new IronSymbol ('_cons');
+const _car = new IronSymbol ('_car');
+const _cdr = new IronSymbol ('_cdr');
 
 const _quote = new IronSymbol ('_quote');
+const _dot = new IronSymbol ('_dot');
+
 const _if = new IronSymbol ('_if');
 const _def = new IronSymbol ('_def');
+const _let = new IronSymbol ('_let');
 const _assign_unsafe = new IronSymbol ('_assign!');
-const _fn = new IronSymbol('_fn');
-const _begin = new IronSymbol('_begin');
-const _sync = new IronSymbol('_sync');
-const _rho = new IronSymbol('_rho');
+const _fn = new IronSymbol ('_fn');
+const _begin = new IronSymbol ('_begin');
+const _sync = new IronSymbol ('_sync');
+const _rho = new IronSymbol ('_rho');
 
-const _self = new IronSymbol('_self'); 
-const _null_ = new IronSymbol('_null_'); 
-const _object_ = new IronSymbol('_{}_'); 
-const _array_ = new IronSymbol('_[]_'); 
-const _map_ = new IronSymbol('_map_'); 
-const _get = new IronSymbol('_get'); 
-const _set = new IronSymbol('_set'); 
+const _self = new IronSymbol ('_self'); 
+const _this = new IronSymbol ('_this');
+const _null_ = new IronSymbol('NIL'); 
+
+const _coll = new IronSymbol ('_coll');
+const _seq = new IronSymbol('_seq'); 
+
+const _map = new IronSymbol('_map');
+const _filter = new IronSymbol('_filter');
+
 const _push = new IronSymbol('_push'); 
 const _pull = new IronSymbol('_pull'); 
+const _pop = new IronSymbol ('_pop');
+
 const _stream = new IronSymbol('_stream'); 
 const _do = new IronSymbol('_do'); 
 const _on = new IronSymbol('_on'); 
+
 const _include = new IronSymbol('_include'); 
 const _import = new IronSymbol('_import'); 
 
@@ -67,14 +83,115 @@ const defaultCallback = (err, env) => {
 export default function evalAsync (x, env, cb=defaultCallback ) {
   if (x instanceof IronSymbol) {
     if (_self.equal(x)) nextTick (cb, null, env, null, env);
+    else if (_this.equal(x)) nextTick (cb, null, env, null, env.collection);
     else if (_null_.equal(x)) nextTick (cb, null, env, null, null);
-    else if (_object_.equal(x)) nextTick (cb, null, env, null, {});
-    else if (_array_.equal(x)) nextTick (cb, null, env, null, []);
-    else if (_map_.equal(x)) nextTick (cb, null, env, null, new Map());
     else nextTick (cb, null, env, null, env.get(x));
   }
   else if (!(x instanceof Cell)) nextTick (cb, null, env, null, x);
   else if (_quote.equal(x.car)) nextTick (cb, null, env, null, x.cdr.car);
+  else if (_cons.equal(x.car)) {
+    let car = x.cdr.car;
+    let cdr = x.cdr.cdr.car;
+    nextTick (evalAsync, car, env, (err, env, _, car) => {
+      nextTick (evalAsync, cdr, env, (err, env, _, cdr) => {
+        let list = Cell.cons(car, cdr);
+          nextTick (cb, null, env, null, list);
+      });
+    });
+  }
+  else if (_car.equal(x.car) || _cdr.equal(x.car)) {
+    nextTick(evalAsync, x.cdr.car, env, (err, env, _, list) => {
+      if (list instanceof Cell) {
+        if (_car.equal(x.car)) nextTick (cb, null, env, null, list.car);
+        if (_cdr.equal(x.car)) nextTick (cb, null, env, null, list.cdr);
+      }
+      else nextTick (cb, null, env, null, null);
+    });
+  }
+  else if (_seq.equal(x.car)) {
+    let args = [];
+    while (x.cdr instanceof Cell) {
+      x = x.cdr;
+      args.push (x.car);
+    }
+    
+    let evalArg = (arg, _cb) => {
+      nextTick(evalAsync, arg, env, (err, env, _, argval) => {
+        nextTick (_cb, err, argval);
+      });
+    };
+    
+    mapLimit (args, 32, evalArg, (err, argvals) => {
+      //console.log(argvals);
+      nextTick (cb, err, env, null, new Sequence (argvals) );
+    });
+  }
+  else if (_map.equal(x.car) || _filter.equal(x.car)) {
+    let _seqn = x.cdr.car;
+    let _func = x.cdr.cdr.car;
+    nextTick (evalAsync, _seqn, env, (err, _env, _, seq) => {
+      //console.log(Array(seq));
+      if (seq instanceof Array || seq.__itype__ === 'sequence') {
+        let _arr = seq;
+        if (seq.__itype__ === 'sequence') _arr = seq.arr;
+        let arr = [];
+        let i = 0;
+        for (let it of  _arr) {
+          arr.push({index:i, val:it});
+          i++;
+        }
+        nextTick (evalAsync, _func, env, (err, _env, _, func) => {
+          //console.log('here  '+Cell.stringify(_func));
+          if (func instanceof Function) {
+            let cbfn = (arg, _cb) => {
+              //console.log(arg);
+              nextTick (func, null, env, (err, _env, _, val) => {nextTick(_cb, err, val);}, arg.val, arg.index);
+            }
+            if (_map.equal(x.car))
+              mapLimit (arr, 32, cbfn, (err, newarr) => {
+                if (seq.__itype__==='sequence') nextTick (cb, err, env, null, new Sequence(newarr));
+                else nextTick (cb, err, env, null, newarr);
+              });
+            else 
+              filterLimit (arr, 32, cbfn, (err, newarr) => {
+                let retarr = [];
+                for (let it of newarr) retarr.push(it.val);
+                if (seq.__itype__==='sequence') nextTick (cb, err, env, null, new Sequence(retarr));
+                else nextTick (cb, err, env, null, retarr);
+              });
+          }
+          else nextTick (cb, Cell.stringify(_func)+' is not a Function');
+        });
+      }
+      else nextTick (cb, Cell.stringify(_seqn)+' is not an Array or Sequence');
+    });
+  }
+  else if (_dot.equal(x.car)) {
+    let args = [];
+    let cmd = x.ctx;
+    if (x.ctx === null) cmd = 'get';
+
+    //console.log('### Ref: '+x.ctx+' '+Cell.stringify(x));
+
+    while (x.cdr instanceof Cell) {
+      x = x.cdr;
+      args.push (x.car);
+    }
+    
+    let evalArg = (arg, _cb) => {
+      nextTick(evalAsync, arg, env, (err, env, _, argval) => {
+        nextTick (_cb, err, argval);
+      });
+    };
+    
+    mapLimit (args, 32, evalArg, (err, argvals) => {
+      //console.log(argvals);
+      let ref = new Reference (cmd, ...argvals);
+      //console.log('### Return of Ref: '+ref.value);
+      nextTick (cb, err, env, null, ref.value);
+    });
+  }
+
   else if (_if.equal(x.car)) {
     let test = x.cdr.car;
     let then = x.cdr.cdr.car;
@@ -85,14 +202,27 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
       nextTick (evalAsync, expr, env, cb);
     });
   }
-  else if (_def.equal(x.car)) {
+  else if (_def.equal(x.car) || _let.equal(x.car)) {
     let name = x.cdr.car;
     let val = x.cdr.cdr.car;
-    nextTick (evalAsync, val, env, (err, _env, _, value) => {
-      let sts = env.bind(name, value);
-      if (!sts) nextTick (cb, 'can _def only inside a _begin block');
-      else nextTick (cb, null, env, null, value);
-    });
+    if (name instanceof IronSymbol) {
+      nextTick (evalAsync, val, env, (err, _env, _, value) => {
+        let sts = env.bind(name, value);
+        if (!sts) nextTick (cb, 'can _def only inside a _begin block');
+        else nextTick (cb, null, env, null, value);
+      });
+    }
+    else if (name instanceof Cell && _dot.equal(name.car)) {
+      name.ctx = 'set';
+      //console.log(Cell.stringify(name));
+      nextTick (evalAsync, name, env, (err, _env, _, ref) => {
+        nextTick (evalAsync, val, env, (err, _env, _, value) => {
+          //console.log(Cell.stringify(ref));
+          nextTick (cb, err, env, null, ref(value) );
+        });
+      });
+    }
+    else nextTick (cb, ""+Cell.stringify(name)+"is not a valid LValue, Symbols and References are the only valid LValues");
   }
   else if (_assign_unsafe.equal(x.car)) {
     let name = x.cdr.car;
@@ -101,82 +231,6 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
       let sts = env.find(name).bind(name, value);
       if (!sts) nextTick (cb, 'can _def only inside a _begin block');
       else nextTick (cb, null, env, null, value);
-    });
-  }
-  else if (_get.equal(x.car)) {
-    let obj = x.cdr.car;
-    let key = x.cdr.cdr.car;
-
-    nextTick (evalAsync, obj, env, (_err, _env, _cb, _obj) => {
-      nextTick (evalAsync, key, env, (_err, _env, _cb, _key) => {
-        let obj = _obj;
-        let key = _key;
-        let err = _err;
-        
-        //console.log (inspect (key));
-
-        if (obj instanceof Object && obj.__itype__ === "env") {
-          if (key instanceof Object && key.type === "ironsymbol") {
-            //console.log ('_____DEBUG_______\n'+ inspect(obj));
-            nextTick (cb, err, env, null, obj.map.get(key.symbol));
-          }
-          else nextTick (cb, err, env, null, key);
-        }
-        else if (obj instanceof Map) {
-          nextTick (cb, err, env, null, obj.get(key));
-        }
-        else if (obj instanceof Array) {
-          nextTick (cb, err, env, null, obj [key]);
-        }
-        else if (obj instanceof Object) {
-          if (key instanceof Object && key.type === "ironsymbol") 
-            nextTick (cb, err, env, null, obj [key.symbol]);
-          else nextTick (cb, err, env, null, obj [key]);
-        }
-        else nextTick (cb, new IError ('Can not _get from '+obj));
-      });
-    });
-  }
-  else if (_set.equal(x.car)) {
-    let obj = x.cdr.car;
-    let key = x.cdr.cdr.car;
-    let val = x.cdr.cdr.cdr.car;
-    
-    nextTick (evalAsync, obj, env, (_err, _env, _cb, _obj) => {
-      nextTick (evalAsync, key, env, (_err, _env, _cb, _key) => {
-        nextTick (evalAsync, key, env, (_err, _env, _cb, _val) => {
-          let obj = _obj;
-          let key = _key;
-          let val = _val;
-          let err = _err;
-          
-          if (obj instanceof Object && obj.__itype__ === "env") {
-            nextTick (cb, new IError ('can not set to a scope outside the scope'));
-          }
-          else if (obj instanceof Map) {
-            nextTick (cb, null, env, null, obj.set(key, val));
-          }
-          else if (obj instanceof Array) {
-            if (isNaN(Number(key))) nextTick (cb, new IError ('Arrays can have integers as keys'));
-            else {
-              let key = Number(key);
-              if (key%1 === 0) {
-                if (key < 0) key = obj.length + key;
-                if (key < 0) nextTick (cb, new IError ('can not _set '+obj+' ['+ (key - obj.length) +']'));
-                obj [key] = val;
-                nextTick (cb, null, env, null, obj);
-              }
-              else nextTick (cb, new IError ('Arrays can have integers as keys'));
-            }
-          }
-          else if (obj instanceof Object) {
-            if (key instanceof Object && key.type === "ironsymbol") key = key.symbol;
-            obj [key] = val;
-            nextTick (cb, null, env, null, obj);
-          }
-          else nextTick (cb, new IError ('Can not _set on '+obj));
-        });
-      });
     });
   }
   else if (_push.equal(x.car)) {
@@ -188,11 +242,11 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
         let arr = _arr;
         let val = _val;
 
-        if (arr instanceof Array) {
+        if (arr instanceof Array || (arr instanceof Object && (arr.__itype__ === 'sequence' || arr.__itype__ === 'stream') ) ) {
           arr.push(val);
           nextTick (cb, null, env, null, arr);
         }
-        else nextTick (cb, new IError ('Can _push only on Arrays'));
+        else nextTick (cb, new IError ('Can _push to Arrays, Sequences and Streams'));
       });
     });
   }
@@ -212,12 +266,15 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
       else nextTick (cb, null, env, null, env);
     });
   }
-  else if (_begin.equal(x.car) || _sync.equal(x.car)) {
+  else if (_begin.equal(x.car) || _sync.equal(x.car) || _coll.equal(x.car)) {
     let root = x.cdr;
     let cur = root;
+    let isColl = _coll.equal(x.car);
     
     let _env = env;
     if (_begin.equal(x.car)) _env = new Env(null, null, env);
+    else if (_coll.equal(x.car)) _env = new Env(null, null, env, true);
+    else _env = env;
 
     let unsyncFlag = false;
     if (!_env.syncLock) {
@@ -234,8 +291,10 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
       },
 
       (err, res) => {
+        //if(isColl)console.log(_env.collection.obj);
         if (unsyncFlag) _env.unsync();
-        nextTick (cb, err, _env, null, res);
+        if (isColl) nextTick (cb, err, env, null, _env.collection);
+        else nextTick (cb, err, _env, null, res);
       }
     );
   }
@@ -313,7 +372,17 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
         nextTick (cb, null, env, null, s.value);
       else if (s instanceof Array)
         nextTick (cb, null, env, null, s.shift());
-      else nextTick (cb, new IError("can pull from streams and arrays only"));
+      else if (s instanceof Object && s.__itype__ === 'sequence')
+        nextTick (cb, null, env, null, s.pull());
+      else nextTick (cb, new IError("can pull from Streams, Arrays and Sequences"));
+    });
+  }
+  else if (_pop.equal(x.car)) {
+    let arr = x.cdr.car;
+    nextTick (evalAsync, arr, env, (err, _env, _, arr) => {
+      if (arr instanceof Array || (arr instanceof Object && arr.__itype__ === 'sequence') )
+        nextTick (cb, null, env, null, arr.pop());
+      else nextTick (cb, new IError("can pop from Arrays and Sequences"));
     });
   }
   else if (_do.equal(x.car)) {
@@ -343,6 +412,8 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
   else {
     nextTick (evalAsync, x.car, env, (err, env, _, func) => {
       //console.log (''+x.car +'\n\n'+inspect(func));
+      //console.log("### debug ### "+Cell.stringify(func));
+      
       if (func instanceof Object && func.__itype__ === "env") {
         //console.log ('__debug__\n\n ' + inspect(func));
         let acell = x.cdr;
@@ -367,8 +438,10 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 
           (err, argvals) => {
             let scope = new Env (Cell.list(params), Cell.list(argvals), _env);
-            //console.log (scope);
+            //console.log (Cell.stringify(body));
+            //console.log (params, argvals);
             nextTick (evalAsync, body, scope, (err, _, __, val) => {
+              //console.log('Debug ________: '+val);
               nextTick (cb, err, _env, null, val);
             });
           });
@@ -404,7 +477,9 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
         });
 
       }
-      else nextTick (cb, new IError ('can not evaluate list '+x));
+      else {
+        nextTick (cb, new IError ('can not evaluate list '+Cell.stringify(x)));
+      }
     });
   }
 

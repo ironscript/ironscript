@@ -25,12 +25,15 @@
 import Cell from './cell.js';
 import ensure from './ensure.js';
 import IronSymbol from './symbol.js';
+
 import Rho from './rho.js';
+import {Collection} from './collection.js';
+
 import IError from './errors.js';
 //import {inspect} from 'util';
 
 export default class Env {
-  constructor (param, arg, par) {
+  constructor (param, arg, par, newcollection=false) {
     this.__itype__ = "env";
     this.map = new Map();
     this.par = par; 
@@ -38,14 +41,19 @@ export default class Env {
     this.bind (param, arg);
     this.syncLock = false;
     this.rho = new Rho(this);
-    this.constTable = new Map();
+    this.symtab = new Map();
+
+    if (newcollection) this.collection = new Collection();
+    else if (this.par) this.collection = this.par.collection;
+    else this.collection = null;
   }
   
   static clone (env) {
     let e = new Env(null, null, env.par);
     e.map = env.map;
     e.rho = env.rho;
-    e.constTable = env.constTable;
+    e.symtab = env.symtab;
+    e.collection = env.collection;
     return e;
   }
 
@@ -71,15 +79,22 @@ export default class Env {
     if (!this.syncLock) return false;
     while (key instanceof Cell) {
       //console.log ('debug: ',inspect(key), inspect(val));
-      ensure (val instanceof Cell, "can not bind a List to an Atom");
-      this.bind (key.car, val.car);
-      key = key.cdr;
-      val = val.cdr;
+      //ensure (val instanceof Cell, "can not bind a List to an Atom");
+      if (val instanceof Cell) {
+        this.bind (key.car, val.car);
+        key = key.cdr;
+        val = val.cdr;
+      }
+      else {
+        this.bind (key.car, undefined);
+        key = key.cdr;
+      }
     }
     if (key !== null) {
       ensure (key instanceof IronSymbol, ""+key+" is not an IronSymbol");
       let keystr = key.symbol;
       this.map.set (keystr, val);
+      //console.log(keystr, val);
     }
     return true;
   }
@@ -99,25 +114,21 @@ export default class Env {
     else if (this.par !== null) ret = this.par.get(key);
     else ret = key;
     
-    if (ret instanceof Function) return ret;
-    else if (ret instanceof Object && ret.__itype__ === 'stream') return ret;
-    else if (ret instanceof Object) return Object.assign({}, ret);
+    //console.log(keystr, ret);
+
+    //if (ret instanceof Function) return ret;
+    //else if (ret instanceof Object && ret.__itype__ === 'stream') return ret;
+    //else if (ret instanceof Object) return ret;//return Object.assign({}, ret);
     return ret;
   }
 
   defc (key, val) {
-    this.constTable.set(key, val);
-    return val;
-  }
-
-  setc (key, val) {
-    if (this.constTable.has(key)) return this.constTable.get(key);
-    this.constTable.set(key, val);
+    this.symtab.set(key, val);
     return val;
   }
 
   getc (key) {
-    if (this.constTable.has(key)) return this.constTable.get(key);
+    if (this.symtab.has(key)) return this.symtab.get(key);
     else if (this.par !== null) return this.par.getc(key);
     else return null;
   }

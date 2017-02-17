@@ -45,7 +45,7 @@ export default class Parser {
     val = this.parseAtom();
     
     while (val !== end && val !== Lexer.eps) {
-      if ( (end === ')' && val === ']') || (end === ']' && val === ')') )
+      if (val === ')' || val === ']' || val === '}')
         this.error ('Parenthesis/Bracket mismatch');
       
       cur.cdr = new Cell (val);
@@ -62,6 +62,12 @@ export default class Parser {
     if (token === '(') return this.parseList(')');
     else if (token === "'") return Cell.cons(new IronSymbol('_quote'), new Cell (this.parseAtom()) );
     else if (token === '[') return Cell.cons(new IronSymbol('_self'), this.parseList(']') );
+    else if (token === '{') return Cell.cons(new IronSymbol('_coll'), this.parseList('}') );
+    else if (token instanceof Array) {
+      let cell = Cell.cons(new IronSymbol('_dot'), Cell.list(token));
+      cell.ctx = 'get';
+      return cell;
+    }
     else return token;
   }
 
