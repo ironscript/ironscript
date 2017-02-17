@@ -154,6 +154,10 @@ export default class Rho {
         args.push(env.get(v));
         argStrs.push(v.symbol);
       }
+      else if (v instanceof Cell) {
+        args.push(v);
+        argStrs.push(Cell.stringify(v));
+      }
       else {
         args.push(v);
         argStrs.push(''+v);

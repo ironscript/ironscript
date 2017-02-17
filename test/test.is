@@ -11,7 +11,7 @@ _begin
   
 
   ( @{
-    console.log(vdom);  
+    //console.log(vdom);  
   }@ )
 
   
@@ -57,7 +57,7 @@ _begin
 
 
 
-  (_rho '(@a should be @b) (_echo (concat @a " should be " @b " : " (_if (== @a @b) "passed" "failed" ) ) ) )
+  (_rho '(@a should be @b) (_echo (concat @#a " should be " @b " : " (_if (== @a @b) "passed" "failed" ) ) ) )
 
   [(+ 1 2) should be 3]
   [[5 !] should be 120]
@@ -104,6 +104,8 @@ _begin
     (_let .roll "112CS0558")
   })
 
+  (_echo myColl)
+
   (_echo myColl.name myColl.roll)
   (_def myColl.name "Ganesh Prasad")
   (_def myColl.contacts (_seq "9668588771" "9040117018"))
@@ -124,15 +126,38 @@ _begin
   })
 
 
+  (_def intervalfn @{ 
+    let i = 0;
+    $return (function (arg) {
+      if (arg !== null && arg !== undefined) i++;
+      if (i===args[0]) {
+        i = 0;
+        return arg;
+      }
+      return null;
+    });
+  }@ )
+
+  (_def interval-stream (_fn (interval stream) (_stream (_fx (intervalfn interval) ) (stream) ) ) )
+
+  
+
+
+
+
   ;(_echo (clock.seconds-stream))
   ;(_do (_on clock.seconds-stream (_echo (_pull clock.seconds-stream) ) ) )
 
+  (_echo (_map (_seq 1 2 3) (_fn (x i) [i * x] ) ) )
+  (_echo (_filter (_seq 1 2 3) (_fn (x) (% x 2) ) ) )
 
 
+  (_def pass (_fn (x) NIL) )
+  (_def message-port (_stream pass NIL) ) 
 
+  (_do (_on message-port (_echo "Message >>> " (_pull message-port) ) ) )
 
-
-
+  (_do (_on (interval-stream 5 clock.seconds-stream) (_push message-port "Hello") ) )
 
 
   (_def natstream @{ 

@@ -30,10 +30,19 @@ import {nextTick} from 'async-es';
 import Cell from './cell.js';
 
 function echo (...args) {
+  let str = "";
   for (let arg of args) {
-    if (arg instanceof Cell) console.log (Cell.printList(arg));
-    else console.log (arg);
+    if (arg instanceof Cell) str += Cell.stringify(arg) + " ";
+    else if (arg instanceof Function) str += '[Function] ';
+    else if (arg instanceof Object && arg.__itype__ === 'collection') {
+      str += JSON.stringify(arg.obj) + " ";
+      //console.log(arg);
+    }
+    else if (arg instanceof Object && arg.__itype__ === 'sequence') str += JSON.stringify(arg.arr) + " ";
+    else if (typeof arg === 'object') str += JSON.stringify(arg) + " ";
+    else str += arg + " ";
   }
+  console.log(str);
 }
 
 export default function () {

@@ -28,7 +28,7 @@ import Stream from './stream.js';
 import {fn} from './higher.js';
 import IronSymbol from './symbol.js';
 import IError from './errors.js';
-import {nextTick, mapLimit, whilst} from 'async-es';
+import {nextTick, mapLimit, whilst, filterLimit} from 'async-es';
 
 
 import {Reference, Collection, Sequence} from './collection.js';
@@ -58,7 +58,8 @@ const _null_ = new IronSymbol('NIL');
 const _coll = new IronSymbol ('_coll');
 const _seq = new IronSymbol('_seq'); 
 
-const _map = new IronSymbol('_map'); 
+const _map = new IronSymbol('_map');
+const _filter = new IronSymbol('_filter');
 
 const _push = new IronSymbol('_push'); 
 const _pull = new IronSymbol('_pull'); 
@@ -121,12 +122,54 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
     };
     
     mapLimit (args, 32, evalArg, (err, argvals) => {
+      //console.log(argvals);
       nextTick (cb, err, env, null, new Sequence (argvals) );
+    });
+  }
+  else if (_map.equal(x.car) || _filter.equal(x.car)) {
+    let _seqn = x.cdr.car;
+    let _func = x.cdr.cdr.car;
+    nextTick (evalAsync, _seqn, env, (err, _env, _, seq) => {
+      //console.log(Array(seq));
+      if (seq instanceof Array || seq.__itype__ === 'sequence') {
+        let _arr = seq;
+        if (seq.__itype__ === 'sequence') _arr = seq.arr;
+        let arr = [];
+        let i = 0;
+        for (let it of  _arr) {
+          arr.push({index:i, val:it});
+          i++;
+        }
+        nextTick (evalAsync, _func, env, (err, _env, _, func) => {
+          //console.log('here  '+Cell.stringify(_func));
+          if (func instanceof Function) {
+            let cbfn = (arg, _cb) => {
+              //console.log(arg);
+              nextTick (func, null, env, (err, _env, _, val) => {nextTick(_cb, err, val);}, arg.val, arg.index);
+            }
+            if (_map.equal(x.car))
+              mapLimit (arr, 32, cbfn, (err, newarr) => {
+                if (seq.__itype__==='sequence') nextTick (cb, err, env, null, new Sequence(newarr));
+                else nextTick (cb, err, env, null, newarr);
+              });
+            else 
+              filterLimit (arr, 32, cbfn, (err, newarr) => {
+                let retarr = [];
+                for (let it of newarr) retarr.push(it.val);
+                if (seq.__itype__==='sequence') nextTick (cb, err, env, null, new Sequence(retarr));
+                else nextTick (cb, err, env, null, retarr);
+              });
+          }
+          else nextTick (cb, Cell.stringify(_func)+' is not a Function');
+        });
+      }
+      else nextTick (cb, Cell.stringify(_seqn)+' is not an Array or Sequence');
     });
   }
   else if (_dot.equal(x.car)) {
     let args = [];
     let cmd = x.ctx;
+    if (x.ctx === null) cmd = 'get';
 
     //console.log('### Ref: '+x.ctx+' '+Cell.stringify(x));
 
@@ -142,6 +185,7 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
     };
     
     mapLimit (args, 32, evalArg, (err, argvals) => {
+      //console.log(argvals);
       let ref = new Reference (cmd, ...argvals);
       //console.log('### Return of Ref: '+ref.value);
       nextTick (cb, err, env, null, ref.value);
@@ -230,6 +274,7 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
     let _env = env;
     if (_begin.equal(x.car)) _env = new Env(null, null, env);
     else if (_coll.equal(x.car)) _env = new Env(null, null, env, true);
+    else _env = env;
 
     let unsyncFlag = false;
     if (!_env.syncLock) {
@@ -246,8 +291,9 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
       },
 
       (err, res) => {
+        //if(isColl)console.log(_env.collection.obj);
         if (unsyncFlag) _env.unsync();
-        if (isColl) nextTick (cb, err, _env, null, _env.collection);
+        if (isColl) nextTick (cb, err, env, null, _env.collection);
         else nextTick (cb, err, _env, null, res);
       }
     );

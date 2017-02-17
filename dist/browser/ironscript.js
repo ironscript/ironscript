@@ -1,6 +1,16 @@
 (function (exports) {
 'use strict';
 
+var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) {
+  return typeof obj;
+} : function (obj) {
+  return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj;
+};
+
+
+
+
+
 var asyncGenerator = function () {
   function AwaitValue(value) {
     this.value = value;
@@ -3689,6 +3699,7 @@ function _filter(eachfn, arr, iteratee, callback) {
  * @param {Function} [callback] - A callback which is called after all the
  * `iteratee` functions have finished. Invoked with (err, results).
  */
+var filterLimit = doParallelLimit(_filter);
 
 /**
  * The same as [`filter`]{@link module:Collections.filter} but runs only a single async operation at a time.
@@ -4965,6 +4976,9 @@ var Rho = function () {
           if (v instanceof IronSymbol) {
             args.push(env.get(v));
             argStrs.push(v.symbol);
+          } else if (v instanceof Cell) {
+            args.push(v);
+            argStrs.push(Cell.stringify(v));
           } else {
             args.push(v);
             argStrs.push('' + v);
@@ -5069,12 +5083,15 @@ var Reference = function () {
 
     this.keys = keys;
     this.cmd = cmd;
+
+    //console.log(this.cmd, this.obj, this.keys);
   }
 
   createClass(Reference, [{
     key: 'get',
     value: function get() {
       var obj = this.obj;
+      //console.log(this.keys);
       var _iteratorNormalCompletion = true;
       var _didIteratorError = false;
       var _iteratorError = undefined;
@@ -5083,9 +5100,10 @@ var Reference = function () {
         for (var _iterator = this.keys[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
           var key = _step.value;
 
-          if (obj instanceof Object && (obj.__itype__ === 'collection' || obj.__itype__ === 'sequence')) {
-            obj = obj.get(key);
-          } else if (obj instanceof Object) obj = obj[key];else return undefined;
+          if ((typeof obj === 'undefined' ? 'undefined' : _typeof(obj)) === 'object') {
+            if (obj.__itype__ === 'collection' || obj.__itype__ === 'sequence') obj = obj.get(key);else obj = obj[key];
+            //console.log('debug*** ',obj, key);
+          } else return undefined;
         }
       } catch (err) {
         _didIteratorError = true;
@@ -5108,6 +5126,7 @@ var Reference = function () {
     key: 'set',
     value: function set(val) {
       var obj = this.obj;
+      //console.log(obj);
       var _iteratorNormalCompletion2 = true;
       var _didIteratorError2 = false;
       var _iteratorError2 = undefined;
@@ -5117,7 +5136,9 @@ var Reference = function () {
           var key = _step2.value;
 
           //if (obj instanceof Store) obj = obj.get(key);
-          if (obj instanceof Object && (obj.__itype__ === 'collection' || obj.__itype__ === 'sequence')) obj = obj.get(key);else if (obj instanceof Object) obj = obj[key];else return undefined;
+          if ((typeof obj === 'undefined' ? 'undefined' : _typeof(obj)) === 'object') {
+            if (obj.__itype__ === 'collection' || obj.__itype__ === 'sequence') obj = obj.get(key);else obj = obj[key];
+          } else return undefined;
         }
         //if (obj instanceof Store) {
       } catch (err) {
@@ -5135,12 +5156,15 @@ var Reference = function () {
         }
       }
 
-      if (obj instanceof Object && (obj.__itype__ === 'collection' || obj.__itype__ === 'sequence')) {
-        obj.set(this.keys[this.keys.length - 1], val);
-        return val;
-      } else if (obj instanceof Object) {
-        obj[this.keys[this.keys.length - 1]] = val;
-        return val;
+      if ((typeof obj === 'undefined' ? 'undefined' : _typeof(obj)) === 'object') {
+        if (obj.__itype__ === 'collection' || obj.__itype__ === 'sequence') {
+          obj.set(this.keys[this.keys.length - 1], val);
+          return val;
+        } else {
+          obj[this.keys[this.keys.length - 1]] = val;
+          //console.log(this.obj);
+          return val;
+        }
       } else return undefined;
     }
   }, {
@@ -5172,6 +5196,7 @@ var Collection = function (_Store) {
     };
 
     _this2.get = function (key) {
+      //console.log('\n\n\n\n',key,'\n\n\n\n', this.obj[key], '\n\n\n\n');
       if (typeof key !== 'string') return undefined;
       if (_this2.has(key)) return _this2.obj[key];
       return undefined;
@@ -5269,7 +5294,7 @@ var Env = function () {
     this.rho = new Rho(this);
     this.symtab = new Map();
 
-    if (newcollection) this.collection = new Collection();else this.collection = this.par.collection;
+    if (newcollection) this.collection = new Collection();else if (this.par) this.collection = this.par.collection;else this.collection = null;
   }
 
   createClass(Env, [{
@@ -5299,15 +5324,21 @@ var Env = function () {
       if (!this.syncLock) return false;
       while (key instanceof Cell) {
         //console.log ('debug: ',inspect(key), inspect(val));
-        ensure(val instanceof Cell, "can not bind a List to an Atom");
-        this.bind(key.car, val.car);
-        key = key.cdr;
-        val = val.cdr;
+        //ensure (val instanceof Cell, "can not bind a List to an Atom");
+        if (val instanceof Cell) {
+          this.bind(key.car, val.car);
+          key = key.cdr;
+          val = val.cdr;
+        } else {
+          this.bind(key.car, undefined);
+          key = key.cdr;
+        }
       }
       if (key !== null) {
         ensure(key instanceof IronSymbol, "" + key + " is not an IronSymbol");
         var keystr = key.symbol;
         this.map.set(keystr, val);
+        //console.log(keystr, val);
       }
       return true;
     }
@@ -5327,7 +5358,11 @@ var Env = function () {
       var keystr = key.symbol;
       if (this.map.has(keystr)) ret = this.map.get(keystr);else if (this.par !== null) ret = this.par.get(key);else ret = key;
 
-      if (ret instanceof Function) return ret;else if (ret instanceof Object && ret.__itype__ === 'stream') return ret;else if (ret instanceof Object) return Object.assign({}, ret);
+      //console.log(keystr, ret);
+
+      //if (ret instanceof Function) return ret;
+      //else if (ret instanceof Object && ret.__itype__ === 'stream') return ret;
+      //else if (ret instanceof Object) return ret;//return Object.assign({}, ret);
       return ret;
     }
   }, {
@@ -5395,27 +5430,29 @@ var Stream = function Stream(core, env) {
 
   this.push = function (val) {
     _this.value = val;
-    var _iteratorNormalCompletion = true;
-    var _didIteratorError = false;
-    var _iteratorError = undefined;
+    if (val !== null && val !== undefined) {
+      var _iteratorNormalCompletion = true;
+      var _didIteratorError = false;
+      var _iteratorError = undefined;
 
-    try {
-      for (var _iterator = _this.callbacks[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
-        var cb = _step.value;
-
-        nextTick(cb, null, _this.env, null, val);
-      }
-    } catch (err) {
-      _didIteratorError = true;
-      _iteratorError = err;
-    } finally {
       try {
-        if (!_iteratorNormalCompletion && _iterator.return) {
-          _iterator.return();
+        for (var _iterator = _this.callbacks[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+          var _cb = _step.value;
+
+          nextTick(_cb, null, _this.env, null, val);
         }
+      } catch (err) {
+        _didIteratorError = true;
+        _iteratorError = err;
       } finally {
-        if (_didIteratorError) {
-          throw _iteratorError;
+        try {
+          if (!_iteratorNormalCompletion && _iterator.return) {
+            _iterator.return();
+          }
+        } finally {
+          if (_didIteratorError) {
+            throw _iteratorError;
+          }
         }
       }
     }
@@ -5423,27 +5460,29 @@ var Stream = function Stream(core, env) {
 
   nextTick(this.core, function (val) {
     _this.value = val;
-    var _iteratorNormalCompletion2 = true;
-    var _didIteratorError2 = false;
-    var _iteratorError2 = undefined;
+    if (val !== null && val !== undefined) {
+      var _iteratorNormalCompletion2 = true;
+      var _didIteratorError2 = false;
+      var _iteratorError2 = undefined;
 
-    try {
-      for (var _iterator2 = _this.callbacks[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
-        var cb = _step2.value;
-
-        nextTick(cb, null, _this.env, null, val);
-      }
-    } catch (err) {
-      _didIteratorError2 = true;
-      _iteratorError2 = err;
-    } finally {
       try {
-        if (!_iteratorNormalCompletion2 && _iterator2.return) {
-          _iterator2.return();
+        for (var _iterator2 = _this.callbacks[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+          var _cb2 = _step2.value;
+
+          nextTick(_cb2, null, _this.env, null, val);
         }
+      } catch (err) {
+        _didIteratorError2 = true;
+        _iteratorError2 = err;
       } finally {
-        if (_didIteratorError2) {
-          throw _iteratorError2;
+        try {
+          if (!_iteratorNormalCompletion2 && _iterator2.return) {
+            _iterator2.return();
+          }
+        } finally {
+          if (_didIteratorError2) {
+            throw _iteratorError2;
+          }
         }
       }
     }
@@ -5499,6 +5538,7 @@ var _coll = new IronSymbol('_coll');
 var _seq = new IronSymbol('_seq');
 
 var _map = new IronSymbol('_map');
+var _filter$1 = new IronSymbol('_filter');
 
 var _push = new IronSymbol('_push');
 var _pull = new IronSymbol('_pull');
@@ -5556,12 +5596,97 @@ function evalAsync(x, env) {
     };
 
     mapLimit(args, 32, evalArg, function (err, argvals) {
+      //console.log(argvals);
       nextTick(cb, err, env, null, new Sequence(argvals));
     });
+  } else if (_map.equal(x.car) || _filter$1.equal(x.car)) {
+    (function () {
+      var _seqn = x.cdr.car;
+      var _func = x.cdr.cdr.car;
+      nextTick(evalAsync, _seqn, env, function (err, _env, _, seq$$1) {
+        //console.log(Array(seq));
+        if (seq$$1 instanceof Array || seq$$1.__itype__ === 'sequence') {
+          (function () {
+            var _arr = seq$$1;
+            if (seq$$1.__itype__ === 'sequence') _arr = seq$$1.arr;
+            var arr = [];
+            var i = 0;
+            var _iteratorNormalCompletion = true;
+            var _didIteratorError = false;
+            var _iteratorError = undefined;
+
+            try {
+              for (var _iterator = _arr[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+                var it = _step.value;
+
+                arr.push({ index: i, val: it });
+                i++;
+              }
+            } catch (err) {
+              _didIteratorError = true;
+              _iteratorError = err;
+            } finally {
+              try {
+                if (!_iteratorNormalCompletion && _iterator.return) {
+                  _iterator.return();
+                }
+              } finally {
+                if (_didIteratorError) {
+                  throw _iteratorError;
+                }
+              }
+            }
+
+            nextTick(evalAsync, _func, env, function (err, _env, _, func) {
+              //console.log('here  '+Cell.stringify(_func));
+              if (func instanceof Function) {
+                var cbfn = function cbfn(arg, _cb) {
+                  //console.log(arg);
+                  nextTick(func, null, env, function (err, _env, _, val) {
+                    nextTick(_cb, err, val);
+                  }, arg.val, arg.index);
+                };
+                if (_map.equal(x.car)) mapLimit(arr, 32, cbfn, function (err, newarr) {
+                  if (seq$$1.__itype__ === 'sequence') nextTick(cb, err, env, null, new Sequence(newarr));else nextTick(cb, err, env, null, newarr);
+                });else filterLimit(arr, 32, cbfn, function (err, newarr) {
+                  var retarr = [];
+                  var _iteratorNormalCompletion2 = true;
+                  var _didIteratorError2 = false;
+                  var _iteratorError2 = undefined;
+
+                  try {
+                    for (var _iterator2 = newarr[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+                      var it = _step2.value;
+                      retarr.push(it.val);
+                    }
+                  } catch (err) {
+                    _didIteratorError2 = true;
+                    _iteratorError2 = err;
+                  } finally {
+                    try {
+                      if (!_iteratorNormalCompletion2 && _iterator2.return) {
+                        _iterator2.return();
+                      }
+                    } finally {
+                      if (_didIteratorError2) {
+                        throw _iteratorError2;
+                      }
+                    }
+                  }
+
+                  if (seq$$1.__itype__ === 'sequence') nextTick(cb, err, env, null, new Sequence(retarr));else nextTick(cb, err, env, null, retarr);
+                });
+              } else nextTick(cb, Cell.stringify(_func) + ' is not a Function');
+            });
+          })();
+        } else nextTick(cb, Cell.stringify(_seqn) + ' is not an Array or Sequence');
+      });
+    })();
   } else if (_dot.equal(x.car)) {
     (function () {
       var args = [];
       var cmd = x.ctx;
+      if (x.ctx === null) cmd = 'get';
 
       //console.log('### Ref: '+x.ctx+' '+Cell.stringify(x));
 
@@ -5577,6 +5702,7 @@ function evalAsync(x, env) {
       };
 
       mapLimit(args, 32, evalArg, function (err, argvals) {
+        //console.log(argvals);
         var ref = new (Function.prototype.bind.apply(Reference, [null].concat([cmd], toConsumableArray(argvals))))();
         //console.log('### Return of Ref: '+ref.value);
         nextTick(cb, err, env, null, ref.value);
@@ -5661,7 +5787,7 @@ function evalAsync(x, env) {
       var isColl = _coll.equal(x.car);
 
       var _env = env;
-      if (_begin.equal(x.car)) _env = new Env(null, null, env);else if (_coll.equal(x.car)) _env = new Env(null, null, env, true);
+      if (_begin.equal(x.car)) _env = new Env(null, null, env);else if (_coll.equal(x.car)) _env = new Env(null, null, env, true);else _env = env;
 
       var unsyncFlag = false;
       if (!_env.syncLock) {
@@ -5676,8 +5802,9 @@ function evalAsync(x, env) {
           nextTick(callback, err, argval);
         });
       }, function (err, res) {
+        //if(isColl)console.log(_env.collection.obj);
         if (unsyncFlag) _env.unsync();
-        if (isColl) nextTick(cb, err, _env, null, _env.collection);else nextTick(cb, err, _env, null, res);
+        if (isColl) nextTick(cb, err, env, null, _env.collection);else nextTick(cb, err, _env, null, res);
       });
     })();
   } else if (_stream.equal(x.car)) {
@@ -5886,7 +6013,7 @@ function fn(params, body, env) {
   if (env.syncLock) closureEnv.sync();
   return function (err, _env, cb) {
     if (err) cb(err);
-    //console.log (body ,'\n\n\n' ,params,'\n\n\n',args,'\n\n\n');
+    //console.log (Cell.stringify(params), Cell.stringify(args),'\n\n');
     //console.log ('\n\n\n\ndebug: \n----------------------------', new Env(params, Cell.list(args),env), '\n\n');
 
     for (var _len = arguments.length, args = Array(_len > 3 ? _len - 3 : 0), _key = 3; _key < _len; _key++) {
@@ -6362,6 +6489,8 @@ function interpretSync(src, name, env) {
  */
 
 function echo() {
+  var str = "";
+
   for (var _len = arguments.length, args = Array(_len), _key = 0; _key < _len; _key++) {
     args[_key] = arguments[_key];
   }
@@ -6374,7 +6503,10 @@ function echo() {
     for (var _iterator = args[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
       var arg = _step.value;
 
-      if (arg instanceof Cell) console.log(Cell.printList(arg));else console.log(arg);
+      if (arg instanceof Cell) str += Cell.stringify(arg) + " ";else if (arg instanceof Function) str += '[Function] ';else if (arg instanceof Object && arg.__itype__ === 'collection') {
+        str += JSON.stringify(arg.obj) + " ";
+        //console.log(arg);
+      } else if (arg instanceof Object && arg.__itype__ === 'sequence') str += JSON.stringify(arg.arr) + " ";else if ((typeof arg === 'undefined' ? 'undefined' : _typeof(arg)) === 'object') str += JSON.stringify(arg) + " ";else str += arg + " ";
     }
   } catch (err) {
     _didIteratorError = true;
@@ -6390,6 +6522,8 @@ function echo() {
       }
     }
   }
+
+  console.log(str);
 }
 
 var globalenv = function () {

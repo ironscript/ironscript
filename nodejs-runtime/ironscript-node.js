@@ -45,7 +45,7 @@ if (filename) basedir = dirname(filename);
 function loadScript (url, name) { 
   global[name] = require(join(process.cwd(),url)); 
 }
-for (let imp of config.imports) loadScript (imp.url, imp.name);
+if (config && config.imports) for (let imp of config.imports) loadScript (imp.url, imp.name);
 
 readFile(filename, 'utf8', function (err, str) {
   if (err) throw err;
