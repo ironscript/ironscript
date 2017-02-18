@@ -34,22 +34,22 @@ export function fn (params, body, env) {
     if (err) cb (err);
     //console.log (Cell.stringify(params), Cell.stringify(args),'\n\n');
     //console.log ('\n\n\n\ndebug: \n----------------------------', new Env(params, Cell.list(args),env), '\n\n');
-    nextTick (evalAsync, body, new Env(params, Cell.list(args), closureEnv), cb);
+    evalAsync( body, new Env(params, Cell.list(args), closureEnv), cb);
   };
 }
 
 export function fx (err, env, cb, f) {
   if (err) cb (err);
-  nextTick (cb, null, env, null, ( err, _env, _cb,  ...args) => {
+  cb( null, env, null, ( err, _env, _cb,  ...args) => {
     let val = f(...args);
-    nextTick (_cb, null, _env, null, val);
+    _cb( null, _env, null, val);
   });
 }
 
 export function fxSync (f) {
   return (err, _env, _cb, ...args) => {
     let val = f(...args);
-    nextTick (_cb, null, _env, null, val);
+    _cb( null, _env, null, val);
   };
 }
 
@@ -58,14 +58,14 @@ export function fxAsync (f) { // f = ($return, $throw, $catch, $env, ...args) =>
     let exited = false;
     let $return = (retval) => {
       if (!exited) {
-        nextTick (_cb, null, _env, null, retval);
+        _cb( null, _env, null, retval);
         exited = true;
       }
     }
 
     let $throw = (_err) => {
       if (!exited) {
-        nextTick (_cb, _err, _env, null, null);
+        _cb( _err, _env, null, null);
         exited = true;
       }
     }
@@ -76,9 +76,9 @@ export function fxAsync (f) { // f = ($return, $throw, $catch, $env, ...args) =>
     }
 
     let $yield = (retval) => {
-      nextTick (_cb, null, _env, null, retval);
+      _cb( null, _env, null, retval);
     }
 
-    nextTick (f, $return, $throw, $catch, $yield, _env.par, ...args);
+    f($return, $throw, $catch, $yield, _env.par, ...args);
   }
 }
