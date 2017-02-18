@@ -5804,7 +5804,7 @@ function evalAsync(x, env) {
       }, function (err, res) {
         //if(isColl)console.log(_env.collection.obj);
         if (unsyncFlag) _env.unsync();
-        if (isColl) nextTick(cb, err, env, null, _env.collection);else nextTick(cb, err, _env, null, res);
+        if (isColl) nextTick(cb, err, env, null, _env.collection.obj);else nextTick(cb, err, _env, null, res);
       });
     })();
   } else if (_stream.equal(x.car)) {
@@ -6989,6 +6989,7 @@ var Package = function () {
   createClass(Package, [{
     key: 'run',
     value: function run() {
+      //console.log("Running ", this.main);
       this.runtime.run(this.main);
     }
   }]);
@@ -7045,6 +7046,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function runPackage(pkgstr) {
   var p = new Package(pkgstr);
+  p.run();
   return null;
 }
 

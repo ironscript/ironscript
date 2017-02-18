@@ -35,5 +35,6 @@ document.addEventListener('DOMContentLoaded', () => {
 import Package from './package.js';
 export function runPackage (pkgstr) {
   let p = new Package(pkgstr);
+  p.run();
   return null;
 }

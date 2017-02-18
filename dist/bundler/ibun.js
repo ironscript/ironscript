@@ -5418,7 +5418,7 @@ function evalAsync(x, env) {
       }, function (err, res) {
         //if(isColl)console.log(_env.collection.obj);
         if (unsyncFlag) _env.unsync();
-        if (isColl) nextTick(cb, err, env, null, _env.collection);else nextTick(cb, err, _env, null, res);
+        if (isColl) nextTick(cb, err, env, null, _env.collection.obj);else nextTick(cb, err, _env, null, res);
       });
     })();
   } else if (_stream.equal(x.car)) {
