@@ -70,9 +70,8 @@ export function fxAsync (f) { // f = ($return, $throw, $catch, $env, ...args) =>
       }
     }
 
-    let $catch = (_errclass, catchFn) => {
-      if (err instanceof _errclass) 
-        catchFn();
+    let $catch = (catchFn) => {
+      if (err) catchFn(err);
     }
 
     let $yield = (retval) => {

@@ -68,6 +68,45 @@ _begin
 
 
 
+  (_echo (_try ( @{ $throw(1);}@ ) "caught the error") )
+  
+	
+	(_def variadic (_fn (a : b) b ) )
+	(_echo (variadic 1 2 3 4 5 6 7 8 9) )
+	(_echo (variadic 1 ) )
+
+	(_echo (_ (_cons '+ (variadic 1 2 3) ) ) )
+
+	(_def sum (_fn (arg1 : args) (_if args (+ arg1 (_ (_cons 'sum args) ) ) arg1 ) ) ) 
+	
+	(_echo (sum 1 2 3 4 5 ) )
+
+	(_echo (_cons : (5 7) ) ) 
+
+	(_def cond (_fr (exp : exps) 
+		(_if (_ (_car exp)) 
+			(_ (_car (_cdr exp) ) )
+			(_ (_cons 'cond exps) ) 
+		)
+	) )
+
+
+	(_echo (cond 
+		( (== 1 2) 1)
+		( (== 2 2) 2)
+		( (== 3 3) 3)
+		( (== 3 1) 4)
+	) )
+
+
+
+
+
+
+
+
+
+
   (_def multMod (_eval
     @[
       _begin

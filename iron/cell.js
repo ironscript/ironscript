@@ -56,12 +56,13 @@ export default class Cell {
 
   static printList (cell) {
     let str = '( ';
-    while (cell.cdr != null) {
+    while (cell.cdr instanceof Cell) {
       str += Cell.printAtom (cell.car);
       str += " ";
       cell = cell.cdr;
     }
     str += Cell.printAtom (cell.car);
+		if (cell.cdr !== null) str += ' : ' + Cell.printAtom(cell.cdr);
     str += ' ) ';
     return str;
   }

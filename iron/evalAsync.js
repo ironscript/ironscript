@@ -41,15 +41,21 @@ const _cdr = new IronSymbol ('_cdr');
 
 const _quote = new IronSymbol ('_quote');
 const _dot = new IronSymbol ('_dot');
+const _eval = new IronSymbol('_');
 
 const _if = new IronSymbol ('_if');
 const _def = new IronSymbol ('_def');
 const _let = new IronSymbol ('_let');
 const _assign_unsafe = new IronSymbol ('_assign!');
+const _set_unsafe = new IronSymbol ('_set!');
+
 const _fn = new IronSymbol ('_fn');
+const _fr = new IronSymbol ('_fr');
+
 const _begin = new IronSymbol ('_begin');
 const _sync = new IronSymbol ('_sync');
 const _rho = new IronSymbol ('_rho');
+const _try = new IronSymbol ('_try');
 
 const _self = new IronSymbol ('_self'); 
 const _this = new IronSymbol ('_this');
@@ -80,15 +86,42 @@ const defaultCallback = (err, env) => {
   //console.log (env);
 };
 
+function cellToArr (cell, arr, env, cb) {
+	while (cell instanceof Cell) {
+		arr.push (cell.car);
+		cell = cell.cdr;
+	}
+	if (cell !== null) {
+		evalAsync (cell, env, (err, _env, _, val) => {
+			if (val instanceof Cell) cellToArr (val, arr, env, cb);
+			else {
+				arr.push (val);
+				cb (err, env, null, arr);
+			}
+		});
+	}
+	else cb(null, env, null, arr);
+}
+
+
+
+
 export default function evalAsync (x, env, cb=defaultCallback ) {
   if (x instanceof IronSymbol) {
     if (_self.equal(x)) cb (null, env, null, env);
     else if (_this.equal(x)) cb( null, env, null, env.collection);
     else if (_null_.equal(x)) cb( null, env, null, null);
-    else cb( null, env, null, env.get(x));
+    //else cb( null, env, null, env.get(x));
+		else env.getAsync(x, cb);
   }
   else if (!(x instanceof Cell)) cb( null, env, null, x);
   else if (_quote.equal(x.car)) cb( null, env, null, x.cdr.car);
+  else if (_eval.equal(x.car)) {
+		evalAsync (x.cdr.car, env, (err, env, _, y) => {
+			if (err) cb (err);
+			else evalAsync (y, env, cb);
+		});
+	}
   else if (_cons.equal(x.car)) {
     let car = x.cdr.car;
     let cdr = x.cdr.cdr.car;
@@ -109,22 +142,24 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
     });
   }
   else if (_seq.equal(x.car)) {
-    let args = [];
-    while (x.cdr instanceof Cell) {
-      x = x.cdr;
-      args.push (x.car);
-    }
-    
-    let evalArg = (arg, _cb) => {
-      evalAsync( arg, env, (err, env, _, argval) => {
-        _cb( err, argval);
-      });
-    };
-    
-    mapLimit (args, 32, evalArg, (err, argvals) => {
-      //console.log(argvals);
-      cb( err, env, null, new Sequence (argvals) );
-    });
+    //let args = [];
+    //while (x.cdr instanceof Cell) {
+      //x = x.cdr;
+      //args.push (x.car);
+    //}
+		
+		cellToArr (x.cdr, [], env, (err, env, _, args) => {
+			let evalArg = (arg, _cb) => {
+				evalAsync( arg, env, (err, env, _, argval) => {
+					_cb( err, argval);
+				});
+			};
+			
+			mapLimit (args, 32, evalArg, (err, argvals) => {
+				//console.log(argvals);
+				cb( err, env, null, new Sequence (argvals) );
+			});
+		});
   }
   else if (_map.equal(x.car) || _filter.equal(x.car)) {
     let _seqn = x.cdr.car;
@@ -167,30 +202,32 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
     });
   }
   else if (_dot.equal(x.car)) {
-    let args = [];
+    //let args = [];
     let cmd = x.ctx;
     if (x.ctx === null) cmd = 'get';
 
     //console.log('### Ref: '+x.ctx+' '+Cell.stringify(x));
 
-    while (x.cdr instanceof Cell) {
-      x = x.cdr;
-      args.push (x.car);
-    }
-    
-    let evalArg = (arg, _cb) => {
-      evalAsync( arg, env, (err, env, _, argval) => {
-        _cb( err, argval);
-      });
-    };
-    
-    mapLimit (args, 32, evalArg, (err, argvals) => {
-      //console.log(argvals);
-      let ref = new Reference (cmd, ...argvals);
-      //console.log('### Return of Ref: '+ref.value);
-      cb( err, env, null, ref.value);
-    });
-  }
+    //while (x.cdr instanceof Cell) {
+      //x = x.cdr;
+      //args.push (x.car);
+    //}
+		
+		cellToArr (x.cdr, [], env, (err, env, _, args) => {
+			let evalArg = (arg, _cb) => {
+				evalAsync( arg, env, (err, env, _, argval) => {
+					_cb( err, argval);
+				});
+			};
+			
+			mapLimit (args, 32, evalArg, (err, argvals) => {
+				//console.log(argvals);
+				let ref = new Reference (cmd, ...argvals);
+				//console.log('### Return of Ref: '+ref.value);
+				cb( err, env, null, ref.value);
+			});
+		});	
+	}
 
   else if (_if.equal(x.car)) {
     let test = x.cdr.car;
@@ -200,6 +237,14 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
     evalAsync( test, env, (err, env, _, res) => {
       let expr = res ? then : othr;
       evalAsync( expr, env, cb);
+    });
+  }
+  else if (_try.equal(x.car)) {
+    let expr = x.cdr.car;
+    let onerror = x.cdr.cdr.car;
+    evalAsync( expr, env, (err, env, _, res) => { 
+      if (err) evalAsync (onerror, env, cb);
+      else cb(null, env, null, res);
     });
   }
   else if (_def.equal(x.car) || _let.equal(x.car)) {
@@ -224,7 +269,7 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
     }
     else cb( ""+Cell.stringify(name)+"is not a valid LValue, Symbols and References are the only valid LValues");
   }
-  else if (_assign_unsafe.equal(x.car)) {
+  else if (_assign_unsafe.equal(x.car) || _set_unsafe.equal(x.car)) {
     let name = x.cdr.car;
     let val = x.cdr.cdr.car;
     evalAsync( val, env, (err, _env, _, value) => {
@@ -250,10 +295,11 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
       });
     });
   }
-  else if (_fn.equal(x.car)) {
+  else if (_fn.equal(x.car) || _fr.equal(x.car)) {
     let params = x.cdr.car;
     let body = x.cdr.cdr.car;
-    cb( null, env, null, fn (params, body, env) );
+		if (_fr.equal(x.car)) cb (null, env, null, {__itype__:'specialform', func: fn(params, body, env)});
+		else cb( null, env, null, fn (params, body, env) );
   }
   else if (_rho.equal(x.car)) {
     let pattern = x.cdr.car;
@@ -281,72 +327,74 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
       unsyncFlag = true;
       _env.sync();
     }
-    whilst (
-      () => { return x.cdr instanceof Cell; },
-      (callback) => {
-        x = x.cdr;
-        evalAsync( x.car, _env, (err, __env, _, argval) => {
-          nextTick (callback, err, argval);
-        });
-      },
+		cellToArr (x.cdr, [], _env, (err, _env, _, args) => {
+			let i = 0;
+			whilst (
+				//() => { return x.cdr instanceof Cell; },
+				() => { return i<args.length; },
+				(callback) => {
+					//x = x.cdr;
+					evalAsync( args[i], _env, (err, __env, _, argval) => {
+						i += 1;
+						nextTick (callback, err, argval);
+					});
+				},
 
-      (err, res) => {
-        //if(isColl)console.log(_env.collection.obj);
-        if (unsyncFlag) _env.unsync();
-        if (isColl) cb( err, env, null, _env.collection.obj);
-        else cb( err, _env, null, res);
-      }
-    );
-  }
-  else if (_stream.equal(x.car)) {
+				(err, res) => {
+					//if(isColl)console.log(_env.collection.obj);
+					if (unsyncFlag) _env.unsync();
+					if (isColl) cb( err, env, null, _env.collection.obj);
+					else cb( err, _env, null, res);
+				}
+			);
+		});
+	}
+	else if (_stream.equal(x.car)) {
     let func = x.cdr.car;
     let args = x.cdr.cdr;
 
-    //let argvals = [];
-    let arglist = [];
-    //let argflags = [];
-    //let argcount = 0;
-    while (args instanceof Cell) {
-      //argvals.push (null);
-      //argflags.push(false);
-      arglist.push (args.car);
-      args = args.cdr;
-    }
-    //argcount = argflags.length;
+    //let arglist = [];
+    //while (args instanceof Cell) {
+      //arglist.push (args.car);
+      //args = args.cdr;
+    //}
+		
+		cellToArr (args, [], env, (err, env, _, arglist) => {
 
-    evalAsync( func, env, (err, _env, _, func) => {
-      
-      let corefn = (updatefn) => {
-        let argvals = Array(arglist.length);
-        let argflags = [];
-        let argcount = arglist.length;
-        for (let i=0; i<arglist.length; i++) {
-          argflags.push(false);
-          evalAsync( arglist[i], env, (err, _env, _, argval) => {
-            argvals[i] = argval;
-            if (argval !== null && argval !== undefined) {
-              //debugger;
-              if (!argflags[i]) {
-                argflags[i] = true;
-                argcount--;
-              }
-            }
-            else {
-              if (argflags[i]) {
-                argflags[i] = false;
-                argcount++;
-              }
-            }
-            if (argcount === 0) func (err, env, (err, _env, _cb, retval) => {
-                updatefn(retval);
-              } , ...argvals);
-          });
-        }
-      };
-      
-      cb (err, env, null, new Stream(corefn, env) );
+			evalAsync( func, env, (err, _env, _, func) => {
+			 
+				let corefn = (updatefn) => {
+					let argvals = Array(arglist.length);
+					let argflags = [];
+					let argcount = arglist.length;
+					for (let i=0; i<arglist.length; i++) {
+						argflags.push(false);
+						evalAsync( arglist[i], env, (err, _env, _, argval) => {
+							argvals[i] = argval;
+							if (argval !== null && argval !== undefined) {
+								//debugger;
+								if (!argflags[i]) {
+									argflags[i] = true;
+									argcount--;
+								}
+							}
+							else {
+								if (argflags[i]) {
+									argflags[i] = false;
+									argcount++;
+								}
+							}
+							if (argcount === 0) func (err, env, (err, _env, _cb, retval) => {
+									updatefn(retval);
+								} , ...argvals);
+						});
+					}
+				};
+				
+				cb (err, env, null, new Stream(corefn, env) );
 
-    });
+			});
+		});
   }
   else if (_on.equal(x.car)) {
     let controlStream = x.cdr.car;
@@ -428,7 +476,23 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
           let args = reduced.args;
           let params = reduced.params;
           let body = reduced.body;
-          
+					
+					let scope = new Env (Cell.list(params), Cell.list(args), _env);
+					let cache = Object.create(null);
+					scope.getAsync = (x, _cb) => {
+						if (cache[x.symbol]) _cb (null, scope, null, cache[x.symbol]);
+						else if (scope.map.has (x.symbol)) {
+							evalAsync (scope.map.get(x.symbol), scope, (err, _env, _, val) => {
+								cache[x.symbol] = val;
+								_cb (null, scope, null, val);
+							});
+						}
+						else _cb (null, scope, null, scope.get(x));
+					}
+
+					evalAsync (body, scope, cb);
+				}
+        /*  
           mapLimit (args, 32, (arg, _cb) => {
             //console.log ('debug : ', arg);
             evalAsync( arg, _env, (err, __env, _, argval) => {
@@ -450,35 +514,49 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
             //cb( err, env, null, val);
           //});
         }
+				*/
       }
       
       else if (func instanceof Object && func.__itype__ === 'stream') {
         func.addcb(cb)
         cb( err, env, null, func.value);
       }
+			
+			else if (func instanceof Object && func.__itype__ === 'specialform') {
+				func = func.func;
+				//let args = [];
+				//while (x.cdr instanceof Cell) {
+					//x = x.cdr;
+					//args.push (x.car);
+				//}
+				cellToArr (x.cdr, [], env, (err, env, _, args) => {
+					let _env = new Env (null, null, env);
+					func (null, _env, cb, ...args);
+				});
+			}
 
       else if (func instanceof Function) {
-        let args = [];
-        while (x.cdr instanceof Cell) {
-          x = x.cdr;
-          args.push (x.car);
-        }
-        
-        let evalArg = (arg, _cb) => {
-          evalAsync( arg, env, (err, env, _, argval) => {
-            _cb( err, argval);
-          });
-        };
-        
-        mapLimit (args, 32, evalArg, (err, argvals) => {
-          //console.log ('\n\n\n\ndebug: ', argvals, '\n', env, '\n\n');
-          let _env = new Env (null, null, env);
-          func (err, _env, cb, ...argvals);
-        });
-
+        //let args = [];
+        //while (x.cdr instanceof Cell) {
+          //x = x.cdr;
+          //args.push (x.car);
+        //}
+        cellToArr (x.cdr, [], env, (err, env, _, args) => {
+					let evalArg = (arg, _cb) => {
+						evalAsync( arg, env, (err, env, _, argval) => {
+							_cb( err, argval);
+						});
+					};
+					
+					mapLimit (args, 32, evalArg, (err, argvals) => {
+						//console.log ('\n\n\n\ndebug: ', argvals, '\n', env, '\n\n');
+						let _env = new Env (null, null, env);
+						func (err, _env, cb, ...argvals);
+					});
+				});
       }
       else {
-        cb( new IError ('can not evaluate list '+Cell.stringify(x)));
+        cb (new IError ('can not evaluate list '+Cell.stringify(x)), env, null, x);
       }
     });
   }

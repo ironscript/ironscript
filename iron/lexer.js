@@ -40,7 +40,7 @@ export default class Lexer {
   }
 
   static isOp (ch) {
-    return /[\(\)\{\}\[\]\']/g.test(ch);
+    return /[\(\)\{\}\[\]\':]/g.test(ch);
   }
 
   readString () {

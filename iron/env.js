@@ -91,7 +91,7 @@ export default class Env {
       }
     }
     if (key !== null) {
-      ensure (key instanceof IronSymbol, ""+key+" is not an IronSymbol");
+      ensure (key instanceof IronSymbol, ""+Cell.stringify(key)+" is not an IronSymbol");
       let keystr = key.symbol;
       this.map.set (keystr, val);
       //console.log(keystr, val);
@@ -99,14 +99,18 @@ export default class Env {
     return true;
   }
 
-  find (key) {
+  __internal_find (key) {
     ensure (key instanceof IronSymbol, ""+key+" is not an IronSymbol");
     let keystr = key.symbol;
     if (this.map.has(keystr)) return this;
     return this.par.find(key);
   }
 
-  get (key) {
+	find (key) {
+		return this.__internal_find(key);
+	}
+
+  __internal_get (key) {
     ensure (key instanceof IronSymbol, ""+key+" is not an IronSymbol");
     let ret;
     let keystr = key.symbol;
@@ -121,6 +125,14 @@ export default class Env {
     //else if (ret instanceof Object) return ret;//return Object.assign({}, ret);
     return ret;
   }
+
+	get (key) {
+		return this.__internal_get(key);
+	}
+
+	getAsync (key, cb) {
+		cb (null, this, null, this.__internal_get(key));
+	}
 
   defc (key, val) {
     this.symtab.set(key, val);
