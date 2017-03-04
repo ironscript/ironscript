@@ -4674,12 +4674,13 @@ var Cell = function () {
     key: 'printList',
     value: function printList(cell) {
       var str = '( ';
-      while (cell.cdr != null) {
+      while (cell.cdr instanceof Cell) {
         str += Cell.printAtom(cell.car);
         str += " ";
         cell = cell.cdr;
       }
       str += Cell.printAtom(cell.car);
+      if (cell.cdr !== null) str += ' : ' + Cell.printAtom(cell.cdr);
       str += ' ) ';
       return str;
     }
@@ -4918,6 +4919,10 @@ var Rho = function () {
         if (state instanceof IError) return state;
         pcell = pcell.cdr;
       }
+
+      if (pcell !== null) {} //TODO
+      //state = state.accept
+
 
       //console.log('debug: ',varvec);
       this.resolutionVector.push(new Resolution(varvec, resolutionBody));
@@ -5335,7 +5340,7 @@ var Env = function () {
         }
       }
       if (key !== null) {
-        ensure(key instanceof IronSymbol, "" + key + " is not an IronSymbol");
+        ensure(key instanceof IronSymbol, "" + Cell.stringify(key) + " is not an IronSymbol");
         var keystr = key.symbol;
         this.map.set(keystr, val);
         //console.log(keystr, val);
@@ -5343,16 +5348,21 @@ var Env = function () {
       return true;
     }
   }, {
-    key: 'find',
-    value: function find(key) {
+    key: '__internal_find',
+    value: function __internal_find(key) {
       ensure(key instanceof IronSymbol, "" + key + " is not an IronSymbol");
       var keystr = key.symbol;
       if (this.map.has(keystr)) return this;
       return this.par.find(key);
     }
   }, {
-    key: 'get',
-    value: function get(key) {
+    key: 'find',
+    value: function find(key) {
+      return this.__internal_find(key);
+    }
+  }, {
+    key: '__internal_get',
+    value: function __internal_get(key) {
       ensure(key instanceof IronSymbol, "" + key + " is not an IronSymbol");
       var ret = void 0;
       var keystr = key.symbol;
@@ -5364,6 +5374,16 @@ var Env = function () {
       //else if (ret instanceof Object && ret.__itype__ === 'stream') return ret;
       //else if (ret instanceof Object) return ret;//return Object.assign({}, ret);
       return ret;
+    }
+  }, {
+    key: 'get',
+    value: function get(key) {
+      return this.__internal_get(key);
+    }
+  }, {
+    key: 'getAsync',
+    value: function getAsync(key, cb) {
+      cb(null, this, null, this.__internal_get(key));
     }
   }, {
     key: 'defc',
@@ -5520,15 +5540,21 @@ var _cdr = new IronSymbol('_cdr');
 
 var _quote = new IronSymbol('_quote');
 var _dot = new IronSymbol('_dot');
+var _eval = new IronSymbol('_');
 
 var _if = new IronSymbol('_if');
 var _def = new IronSymbol('_def');
 var _let = new IronSymbol('_let');
 var _assign_unsafe = new IronSymbol('_assign!');
+var _set_unsafe = new IronSymbol('_set!');
+
 var _fn = new IronSymbol('_fn');
+var _fr = new IronSymbol('_fr');
+
 var _begin = new IronSymbol('_begin');
 var _sync = new IronSymbol('_sync');
 var _rho = new IronSymbol('_rho');
+var _try = new IronSymbol('_try');
 
 var _self = new IronSymbol('_self');
 var _this = new IronSymbol('_this');
@@ -5552,437 +5578,505 @@ var _include = new IronSymbol('_include');
 var _import = new IronSymbol('_import');
 
 var defaultCallback = function defaultCallback(err, env) {
-  if (err) {
-    if (err instanceof IError) err.log();
-    throw err;
-  }
-  //console.log (env);
+	if (err) {
+		if (err instanceof IError) err.log();
+		throw err;
+	}
+	//console.log (env);
 };
 
+function cellToArr(cell, arr, env, cb) {
+	while (cell instanceof Cell) {
+		arr.push(cell.car);
+		cell = cell.cdr;
+	}
+	if (cell !== null) {
+		evalAsync(cell, env, function (err, _env, _, val) {
+			if (val instanceof Cell) cellToArr(val, arr, env, cb);else {
+				arr.push(val);
+				cb(err, env, null, arr);
+			}
+		});
+	} else cb(null, env, null, arr);
+}
+
 function evalAsync(x, env) {
-  var cb = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : defaultCallback;
+	var cb = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : defaultCallback;
 
-  if (x instanceof IronSymbol) {
-    if (_self.equal(x)) cb(null, env, null, env);else if (_this.equal(x)) cb(null, env, null, env.collection);else if (_null_.equal(x)) cb(null, env, null, null);else cb(null, env, null, env.get(x));
-  } else if (!(x instanceof Cell)) cb(null, env, null, x);else if (_quote.equal(x.car)) cb(null, env, null, x.cdr.car);else if (_cons.equal(x.car)) {
-    (function () {
-      var car = x.cdr.car;
-      var cdr = x.cdr.cdr.car;
-      evalAsync(car, env, function (err, env, _, car) {
-        evalAsync(cdr, env, function (err, env, _, cdr) {
-          var list = Cell.cons(car, cdr);
-          cb(null, env, null, list);
-        });
-      });
-    })();
-  } else if (_car.equal(x.car) || _cdr.equal(x.car)) {
-    evalAsync(x.cdr.car, env, function (err, env, _, list) {
-      if (list instanceof Cell) {
-        if (_car.equal(x.car)) cb(null, env, null, list.car);
-        if (_cdr.equal(x.car)) cb(null, env, null, list.cdr);
-      } else cb(null, env, null, null);
-    });
-  } else if (_seq.equal(x.car)) {
-    var args = [];
-    while (x.cdr instanceof Cell) {
-      x = x.cdr;
-      args.push(x.car);
-    }
+	if (x instanceof IronSymbol) {
+		if (_self.equal(x)) cb(null, env, null, env);else if (_this.equal(x)) cb(null, env, null, env.collection);else if (_null_.equal(x)) cb(null, env, null, null);
+		//else cb( null, env, null, env.get(x));
+		else env.getAsync(x, cb);
+	} else if (!(x instanceof Cell)) cb(null, env, null, x);else cellToArr(x, [], env, function (err, env, _, xarray) {
 
-    var evalArg = function evalArg(arg, _cb) {
-      evalAsync(arg, env, function (err, env, _, argval) {
-        _cb(err, argval);
-      });
-    };
+		if (_quote.equal(xarray[0])) cb(null, env, null, xarray[1]);else if (_eval.equal(xarray[0])) {
+			evalAsync(xarray[1], env, function (err, env, _, y) {
+				if (err) cb(err);else evalAsync(y, env, cb);
+			});
+		} else if (_cons.equal(xarray[0])) {
+			(function () {
+				var car = xarray[1];
+				var cdr = xarray[2];
+				evalAsync(car, env, function (err, env, _, car) {
+					evalAsync(cdr, env, function (err, env, _, cdr) {
+						var list = Cell.cons(car, cdr);
+						cb(null, env, null, list);
+					});
+				});
+			})();
+		} else if (_car.equal(xarray[0]) || _cdr.equal(xarray[0])) {
+			evalAsync(xarray[1], env, function (err, env, _, list) {
+				if (list instanceof Cell) {
+					if (_car.equal(xarray[0])) cb(null, env, null, list.car);
+					if (_cdr.equal(xarray[0])) cb(null, env, null, list.cdr);
+				} else cb(null, env, null, null);
+			});
+		} else if (_seq.equal(xarray[0])) {
+			var args = xarray.slice(1);
+			//while (x.cdr instanceof Cell) {
+			//x = x.cdr;
+			//args.push (xarray[0]);
+			//}
 
-    mapLimit(args, 32, evalArg, function (err, argvals) {
-      //console.log(argvals);
-      cb(err, env, null, new Sequence(argvals));
-    });
-  } else if (_map.equal(x.car) || _filter$1.equal(x.car)) {
-    (function () {
-      var _seqn = x.cdr.car;
-      var _func = x.cdr.cdr.car;
-      evalAsync(_seqn, env, function (err, _env, _, seq$$1) {
-        //console.log(Array(seq));
-        if (seq$$1 instanceof Array || seq$$1.__itype__ === 'sequence') {
-          (function () {
-            var _arr = seq$$1;
-            if (seq$$1.__itype__ === 'sequence') _arr = seq$$1.arr;
-            var arr = [];
-            var i = 0;
-            var _iteratorNormalCompletion = true;
-            var _didIteratorError = false;
-            var _iteratorError = undefined;
+			//cellToArr (x.cdr, [], env, (err, env, _, args) => {
+			var evalArg = function evalArg(arg, _cb) {
+				evalAsync(arg, env, function (err, env, _, argval) {
+					_cb(err, argval);
+				});
+			};
 
-            try {
-              for (var _iterator = _arr[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
-                var it = _step.value;
+			mapLimit(args, 32, evalArg, function (err, argvals) {
+				//console.log(argvals);
+				cb(err, env, null, new Sequence(argvals));
+			});
+			//});
+		} else if (_map.equal(xarray[0]) || _filter$1.equal(xarray[0])) {
+			(function () {
+				var _seqn = xarray[1];
+				var _func = xarray[2];
+				evalAsync(_seqn, env, function (err, _env, _, seq$$1) {
+					//console.log(Array(seq));
+					if (seq$$1 instanceof Array || seq$$1.__itype__ === 'sequence') {
+						(function () {
+							var _arr = seq$$1;
+							if (seq$$1.__itype__ === 'sequence') _arr = seq$$1.arr;
+							var arr = [];
+							var i = 0;
+							var _iteratorNormalCompletion = true;
+							var _didIteratorError = false;
+							var _iteratorError = undefined;
 
-                arr.push({ index: i, val: it });
-                i++;
-              }
-            } catch (err) {
-              _didIteratorError = true;
-              _iteratorError = err;
-            } finally {
-              try {
-                if (!_iteratorNormalCompletion && _iterator.return) {
-                  _iterator.return();
-                }
-              } finally {
-                if (_didIteratorError) {
-                  throw _iteratorError;
-                }
-              }
-            }
+							try {
+								for (var _iterator = _arr[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+									var it = _step.value;
 
-            evalAsync(_func, env, function (err, _env, _, func) {
-              //console.log('here  '+Cell.stringify(_func));
-              if (func instanceof Function) {
-                var cbfn = function cbfn(arg, _cb) {
-                  //console.log(arg);
-                  func(null, env, function (err, _env, _, val) {
-                    _cb(err, val);
-                  }, arg.val, arg.index);
-                };
-                if (_map.equal(x.car)) mapLimit(arr, 32, cbfn, function (err, newarr) {
-                  if (seq$$1.__itype__ === 'sequence') cb(err, env, null, new Sequence(newarr));else cb(err, env, null, newarr);
-                });else filterLimit(arr, 32, cbfn, function (err, newarr) {
-                  var retarr = [];
-                  var _iteratorNormalCompletion2 = true;
-                  var _didIteratorError2 = false;
-                  var _iteratorError2 = undefined;
+									arr.push({ index: i, val: it });
+									i++;
+								}
+							} catch (err) {
+								_didIteratorError = true;
+								_iteratorError = err;
+							} finally {
+								try {
+									if (!_iteratorNormalCompletion && _iterator.return) {
+										_iterator.return();
+									}
+								} finally {
+									if (_didIteratorError) {
+										throw _iteratorError;
+									}
+								}
+							}
 
-                  try {
-                    for (var _iterator2 = newarr[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
-                      var it = _step2.value;
-                      retarr.push(it.val);
-                    }
-                  } catch (err) {
-                    _didIteratorError2 = true;
-                    _iteratorError2 = err;
-                  } finally {
-                    try {
-                      if (!_iteratorNormalCompletion2 && _iterator2.return) {
-                        _iterator2.return();
-                      }
-                    } finally {
-                      if (_didIteratorError2) {
-                        throw _iteratorError2;
-                      }
-                    }
-                  }
+							evalAsync(_func, env, function (err, _env, _, func) {
+								//console.log('here  '+Cell.stringify(_func));
+								if (func instanceof Function) {
+									var cbfn = function cbfn(arg, _cb) {
+										//console.log(arg);
+										func(null, env, function (err, _env, _, val) {
+											_cb(err, val);
+										}, arg.val, arg.index);
+									};
+									if (_map.equal(xarray[0])) mapLimit(arr, 32, cbfn, function (err, newarr) {
+										if (seq$$1.__itype__ === 'sequence') cb(err, env, null, new Sequence(newarr));else cb(err, env, null, newarr);
+									});else filterLimit(arr, 32, cbfn, function (err, newarr) {
+										var retarr = [];
+										var _iteratorNormalCompletion2 = true;
+										var _didIteratorError2 = false;
+										var _iteratorError2 = undefined;
 
-                  if (seq$$1.__itype__ === 'sequence') cb(err, env, null, new Sequence(retarr));else cb(err, env, null, retarr);
-                });
-              } else cb(Cell.stringify(_func) + ' is not a Function');
-            });
-          })();
-        } else cb(Cell.stringify(_seqn) + ' is not an Array or Sequence');
-      });
-    })();
-  } else if (_dot.equal(x.car)) {
-    (function () {
-      var args = [];
-      var cmd = x.ctx;
-      if (x.ctx === null) cmd = 'get';
+										try {
+											for (var _iterator2 = newarr[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+												var it = _step2.value;
+												retarr.push(it.val);
+											}
+										} catch (err) {
+											_didIteratorError2 = true;
+											_iteratorError2 = err;
+										} finally {
+											try {
+												if (!_iteratorNormalCompletion2 && _iterator2.return) {
+													_iterator2.return();
+												}
+											} finally {
+												if (_didIteratorError2) {
+													throw _iteratorError2;
+												}
+											}
+										}
 
-      //console.log('### Ref: '+x.ctx+' '+Cell.stringify(x));
+										if (seq$$1.__itype__ === 'sequence') cb(err, env, null, new Sequence(retarr));else cb(err, env, null, retarr);
+									});
+								} else cb(Cell.stringify(_func) + ' is not a Function');
+							});
+						})();
+					} else cb(Cell.stringify(_seqn) + ' is not an Array or Sequence');
+				});
+			})();
+		} else if (_dot.equal(xarray[0])) {
+			(function () {
+				var args = xarray.slice(1);
+				var cmd = x.ctx;
+				if (x.ctx === null) cmd = 'get';
 
-      while (x.cdr instanceof Cell) {
-        x = x.cdr;
-        args.push(x.car);
-      }
+				//console.log('### Ref: '+x.ctx+' '+Cell.stringify(x));
 
-      var evalArg = function evalArg(arg, _cb) {
-        evalAsync(arg, env, function (err, env, _, argval) {
-          _cb(err, argval);
-        });
-      };
+				//while (x.cdr instanceof Cell) {
+				//x = x.cdr;
+				//args.push (xarray[0]);
+				//}
 
-      mapLimit(args, 32, evalArg, function (err, argvals) {
-        //console.log(argvals);
-        var ref = new (Function.prototype.bind.apply(Reference, [null].concat([cmd], toConsumableArray(argvals))))();
-        //console.log('### Return of Ref: '+ref.value);
-        cb(err, env, null, ref.value);
-      });
-    })();
-  } else if (_if.equal(x.car)) {
-    (function () {
-      var test = x.cdr.car;
-      var then = x.cdr.cdr.car;
-      var othr = x.cdr.cdr.cdr.car;
-      //console.log ('\n\n\n\ndebug: \n*********', inspect(test), inspect(then), inspect(othr), '\n\n');
-      evalAsync(test, env, function (err, env, _, res) {
-        var expr = res ? then : othr;
-        evalAsync(expr, env, cb);
-      });
-    })();
-  } else if (_def.equal(x.car) || _let.equal(x.car)) {
-    (function () {
-      var name = x.cdr.car;
-      var val = x.cdr.cdr.car;
-      if (name instanceof IronSymbol) {
-        evalAsync(val, env, function (err, _env, _, value) {
-          var sts = env.bind(name, value);
-          if (!sts) cb('can _def only inside a _begin block');else cb(null, env, null, value);
-        });
-      } else if (name instanceof Cell && _dot.equal(name.car)) {
-        name.ctx = 'set';
-        //console.log(Cell.stringify(name));
-        evalAsync(name, env, function (err, _env, _, ref) {
-          evalAsync(val, env, function (err, _env, _, value) {
-            //console.log(Cell.stringify(ref));
-            cb(err, env, null, ref(value));
-          });
-        });
-      } else cb("" + Cell.stringify(name) + "is not a valid LValue, Symbols and References are the only valid LValues");
-    })();
-  } else if (_assign_unsafe.equal(x.car)) {
-    (function () {
-      var name = x.cdr.car;
-      var val = x.cdr.cdr.car;
-      evalAsync(val, env, function (err, _env, _, value) {
-        var sts = env.find(name).bind(name, value);
-        if (!sts) cb('can _def only inside a _begin block');else cb(null, env, null, value);
-      });
-    })();
-  } else if (_push.equal(x.car)) {
-    (function () {
-      var arr = x.cdr.car;
-      var val = x.cdr.cdr.car;
+				//cellToArr (x.cdr, [], env, (err, env, _, args) => {
+				var evalArg = function evalArg(arg, _cb) {
+					evalAsync(arg, env, function (err, env, _, argval) {
+						_cb(err, argval);
+					});
+				};
 
-      evalAsync(arr, env, function (_err, _env, _cb, _arr) {
-        evalAsync(val, env, function (_err, _env, _cb, _val) {
-          var arr = _arr;
-          var val = _val;
+				mapLimit(args, 32, evalArg, function (err, argvals) {
+					//console.log(argvals);
+					var ref = new (Function.prototype.bind.apply(Reference, [null].concat([cmd], toConsumableArray(argvals))))();
+					//console.log('### Return of Ref: '+ref.value);
+					cb(err, env, null, ref.value);
+				});
+				//});	
+			})();
+		} else if (_if.equal(xarray[0])) {
+			(function () {
+				var test = xarray[1];
+				var then = xarray[2];
+				var othr = xarray[3];
+				//console.log ('\n\n\n\ndebug: \n*********', inspect(test), inspect(then), inspect(othr), '\n\n');
+				evalAsync(test, env, function (err, env, _, res) {
+					var expr = res ? then : othr;
+					evalAsync(expr, env, cb);
+				});
+			})();
+		} else if (_try.equal(xarray[0])) {
+			(function () {
+				var expr = xarray[1];
+				var onerror = xarray[2];
+				evalAsync(expr, env, function (err, env, _, res) {
+					if (err) evalAsync(onerror, env, cb);else cb(null, env, null, res);
+				});
+			})();
+		} else if (_def.equal(xarray[0]) || _let.equal(xarray[0])) {
+			(function () {
+				var name = xarray[1];
+				var val = xarray[2];
+				if (name instanceof IronSymbol) {
+					evalAsync(val, env, function (err, _env, _, value) {
+						var sts = env.bind(name, value);
+						if (!sts) cb('can _def only inside a _begin block');else cb(null, env, null, value);
+					});
+				} else if (name instanceof Cell && _dot.equal(name.car)) {
+					name.ctx = 'set';
+					//console.log(Cell.stringify(name));
+					evalAsync(name, env, function (err, _env, _, ref) {
+						evalAsync(val, env, function (err, _env, _, value) {
+							//console.log(Cell.stringify(ref));
+							cb(err, env, null, ref(value));
+						});
+					});
+				} else cb("" + Cell.stringify(name) + "is not a valid LValue, Symbols and References are the only valid LValues");
+			})();
+		} else if (_assign_unsafe.equal(xarray[0]) || _set_unsafe.equal(xarray[0])) {
+			(function () {
+				var name = xarray[1];
+				var val = xarray[2];
+				evalAsync(val, env, function (err, _env, _, value) {
+					var sts = env.find(name).bind(name, value);
+					if (!sts) cb('can _def only inside a _begin block');else cb(null, env, null, value);
+				});
+			})();
+		} else if (_push.equal(xarray[0])) {
+			(function () {
+				var arr = xarray[1];
+				var val = xarray[2];
 
-          if (arr instanceof Array || arr instanceof Object && (arr.__itype__ === 'sequence' || arr.__itype__ === 'stream')) {
-            arr.push(val);
-            cb(null, env, null, arr);
-          } else cb(new IError('Can _push to Arrays, Sequences and Streams'));
-        });
-      });
-    })();
-  } else if (_fn.equal(x.car)) {
-    var params = x.cdr.car;
-    var body = x.cdr.cdr.car;
-    cb(null, env, null, fn(params, body, env));
-  } else if (_rho.equal(x.car)) {
-    (function () {
-      var pattern = x.cdr.car;
-      var resolution = x.cdr.cdr.car;
-      evalAsync(pattern, env, function (err, _env, _, val) {
-        //console.log('debug-pattern: ', inspect(val));
-        var sts = env.rho.accept(val, resolution);
-        //console.log ('\n\n\n\ndebug: ', inspect(env), '\n\n');
-        if (sts instanceof IError) cb(sts);else cb(null, env, null, env);
-      });
-    })();
-  } else if (_begin.equal(x.car) || _sync.equal(x.car) || _coll.equal(x.car)) {
-    (function () {
-      var root = x.cdr;
-      var cur = root;
-      var isColl = _coll.equal(x.car);
+				evalAsync(arr, env, function (_err, _env, _cb, _arr) {
+					evalAsync(val, env, function (_err, _env, _cb, _val) {
+						var arr = _arr;
+						var val = _val;
 
-      var _env = env;
-      if (_begin.equal(x.car)) _env = new Env(null, null, env);else if (_coll.equal(x.car)) _env = new Env(null, null, env, true);else _env = env;
+						if (arr instanceof Array || arr instanceof Object && (arr.__itype__ === 'sequence' || arr.__itype__ === 'stream')) {
+							arr.push(val);
+							cb(null, env, null, arr);
+						} else cb(new IError('Can _push to Arrays, Sequences and Streams'));
+					});
+				});
+			})();
+		} else if (_fn.equal(xarray[0]) || _fr.equal(xarray[0])) {
+			var params = xarray[1];
+			var body = xarray[2];
+			if (_fr.equal(xarray[0])) cb(null, env, null, { __itype__: 'specialform', func: fn(params, body, env) });else cb(null, env, null, fn(params, body, env));
+		} else if (_rho.equal(xarray[0])) {
+			(function () {
+				var pattern = xarray[1];
+				var resolution = xarray[2];
+				evalAsync(pattern, env, function (err, _env, _, val) {
+					//console.log('debug-pattern: ', inspect(val));
+					//evalAsync (resolution, env, (err, _env, _, resolution) => {
+					var sts = env.rho.accept(val, resolution);
+					//console.log ('\n\n\n\ndebug: ', inspect(env), '\n\n');
+					if (sts instanceof IError) cb(sts);else cb(null, env, null, env);
+					//});
+				});
+			})();
+		} else if (_begin.equal(xarray[0]) || _sync.equal(xarray[0]) || _coll.equal(xarray[0])) {
+			(function () {
+				var root = x.cdr;
+				var cur = root;
+				var isColl = _coll.equal(xarray[0]);
 
-      var unsyncFlag = false;
-      if (!_env.syncLock) {
-        unsyncFlag = true;
-        _env.sync();
-      }
-      whilst(function () {
-        return x.cdr instanceof Cell;
-      }, function (callback) {
-        x = x.cdr;
-        evalAsync(x.car, _env, function (err, __env, _, argval) {
-          nextTick(callback, err, argval);
-        });
-      }, function (err, res) {
-        //if(isColl)console.log(_env.collection.obj);
-        if (unsyncFlag) _env.unsync();
-        if (isColl) cb(err, env, null, _env.collection.obj);else cb(err, _env, null, res);
-      });
-    })();
-  } else if (_stream.equal(x.car)) {
-    (function () {
-      var func = x.cdr.car;
-      var args = x.cdr.cdr;
+				var _env = env;
+				if (_begin.equal(xarray[0])) _env = new Env(null, null, env);else if (_coll.equal(xarray[0])) _env = new Env(null, null, env, true);else _env = env;
 
-      //let argvals = [];
-      var arglist = [];
-      //let argflags = [];
-      //let argcount = 0;
-      while (args instanceof Cell) {
-        //argvals.push (null);
-        //argflags.push(false);
-        arglist.push(args.car);
-        args = args.cdr;
-      }
-      //argcount = argflags.length;
+				var unsyncFlag = false;
+				if (!_env.syncLock) {
+					unsyncFlag = true;
+					_env.sync();
+				}
+				//cellToArr (x.cdr, [], _env, (err, _env, _, args) => {
+				var args = xarray.slice(1);
+				var i = 0;
+				whilst(
+				//() => { return x.cdr instanceof Cell; },
+				function () {
+					return i < args.length;
+				}, function (callback) {
+					//x = x.cdr;
+					evalAsync(args[i], _env, function (err, __env, _, argval) {
+						i += 1;
+						nextTick(callback, err, argval);
+					});
+				}, function (err, res) {
+					//if(isColl)console.log(_env.collection.obj);
+					if (unsyncFlag) _env.unsync();
+					if (isColl) cb(err, env, null, _env.collection.obj);else cb(err, _env, null, res);
+				});
+				//});
+			})();
+		} else if (_stream.equal(xarray[0])) {
+			(function () {
+				var func = xarray[1];
+				var arglist = xarray.slice(2);
 
-      evalAsync(func, env, function (err, _env, _, func) {
+				//let arglist = [];
+				//while (args instanceof Cell) {
+				//arglist.push (args.car);
+				//args = args.cdr;
+				//}
 
-        var corefn = function corefn(updatefn) {
-          var argvals = Array(arglist.length);
-          var argflags = [];
-          var argcount = arglist.length;
+				//cellToArr (args, [], env, (err, env, _, arglist) => {
 
-          var _loop = function _loop(i) {
-            argflags.push(false);
-            evalAsync(arglist[i], env, function (err, _env, _, argval) {
-              argvals[i] = argval;
-              if (argval !== null && argval !== undefined) {
-                //debugger;
-                if (!argflags[i]) {
-                  argflags[i] = true;
-                  argcount--;
-                }
-              } else {
-                if (argflags[i]) {
-                  argflags[i] = false;
-                  argcount++;
-                }
-              }
-              if (argcount === 0) func.apply(undefined, [err, env, function (err, _env, _cb, retval) {
-                updatefn(retval);
-              }].concat(toConsumableArray(argvals)));
-            });
-          };
+				evalAsync(func, env, function (err, _env, _, func) {
 
-          for (var i = 0; i < arglist.length; i++) {
-            _loop(i);
-          }
-        };
+					var corefn = function corefn(updatefn) {
+						var argvals = Array(arglist.length);
+						var argflags = [];
+						var argcount = arglist.length;
 
-        cb(err, env, null, new Stream(corefn, env));
-      });
-    })();
-  } else if (_on.equal(x.car)) {
-    (function () {
-      var controlStream = x.cdr.car;
-      var expr = x.cdr.cdr.car;
+						var _loop = function _loop(_i) {
+							argflags.push(false);
+							evalAsync(arglist[_i], env, function (err, _env, _, argval) {
+								argvals[_i] = argval;
+								if (argval !== null && argval !== undefined) {
+									//debugger;
+									if (!argflags[_i]) {
+										argflags[_i] = true;
+										argcount--;
+									}
+								} else {
+									if (argflags[_i]) {
+										argflags[_i] = false;
+										argcount++;
+									}
+								}
+								if (argcount === 0) func.apply(undefined, [err, env, function (err, _env, _cb, retval) {
+									updatefn(retval);
+								}].concat(toConsumableArray(argvals)));
+							});
+						};
 
-      evalAsync(controlStream, env, function (err, _env, _, cs) {
-        var corefn = function corefn(updatefn) {
-          cs.addcb(function (err, _env, _cb, val) {
-            evalAsync(expr, env, function (err, _env, _, val) {
-              if (val !== null && val !== undefined) updatefn(val);
-            });
-          });
-        };
-        var stream = new Stream(corefn, env);
-        cb(err, env, null, stream);
-      });
-    })();
-  } else if (_pull.equal(x.car)) {
-    var stream = x.cdr.car;
-    evalAsync(stream, env, function (err, _env, _, s) {
-      if (s instanceof Object && s.__itype__ === 'stream') cb(null, env, null, s.value);else if (s instanceof Array) cb(null, env, null, s.shift());else if (s instanceof Object && s.__itype__ === 'sequence') cb(null, env, null, s.pull());else cb(new IError("can pull from Streams, Arrays and Sequences"));
-    });
-  } else if (_pop.equal(x.car)) {
-    var _arr2 = x.cdr.car;
-    evalAsync(_arr2, env, function (err, _env, _, arr) {
-      if (arr instanceof Array || arr instanceof Object && arr.__itype__ === 'sequence') cb(null, env, null, arr.pop());else cb(new IError("can pop from Arrays and Sequences"));
-    });
-  } else if (_do.equal(x.car)) {
-    var _stream2 = x.cdr.car;
-    evalAsync(_stream2, env, function (err, _env, _, streamObj) {
-      streamObj.addcb(function (err) {
-        if (err) throw err;
-      });
-    });
-    cb(null, env, null, null);
-  } else if (_include.equal(x.car)) {
-    (function () {
-      var includefn = env.get(x.car);
-      evalAsync(x.cdr.car, env, function (err, _env, _, sourcename) {
-        nextTick(includefn, err, env, cb, sourcename);
-      });
-    })();
-  } else if (_import.equal(x.car)) {
-    (function () {
-      //console.log('\n\n\n',env,'\n\n\n');
-      var importfn = env.get(x.car);
-      evalAsync(x.cdr.car, env, function (err, _env, _, sourcename) {
-        var names = null;
-        if (x.cdr.cdr) names = x.cdr.cdr.car;
-        evalAsync(names, env, function (err, _env, _, namesList) {
-          nextTick(importfn, err, env, cb, sourcename, namesList);
-        });
-      });
-    })();
-  } else {
-    evalAsync(x.car, env, function (err, env, _, func) {
-      //console.log (''+x.car +'\n\n'+inspect(func));
-      //console.log("### debug ### "+Cell.stringify(func));
+						for (var _i = 0; _i < arglist.length; _i++) {
+							_loop(_i);
+						}
+					};
 
-      if (func instanceof Object && func.__itype__ === "env") {
-        (function () {
-          //console.log ('__debug__\n\n ' + inspect(func));
-          var acell = x.cdr;
-          var _env = new Env(null, null, env);
+					cb(err, env, null, new Stream(corefn, env));
+				});
+				//});
+			})();
+		} else if (_on.equal(xarray[0])) {
+			(function () {
+				var controlStream = xarray[1];
+				var expr = xarray[2];
 
-          var reduced = func.rho.reduce(acell, _env);
-          //console.log ('\n\n\n\ndebug: ', inspect(env), '\n\n');
-          if (reduced === null) cb(null, _env, null, null);else {
-            (function () {
-              //console.log (reduced);
+				evalAsync(controlStream, env, function (err, _env, _, cs) {
+					var corefn = function corefn(updatefn) {
+						cs.addcb(function (err, _env, _cb, val) {
+							evalAsync(expr, env, function (err, _env, _, val) {
+								if (val !== null && val !== undefined) updatefn(val);
+							});
+						});
+					};
+					var stream = new Stream(corefn, env);
+					cb(err, env, null, stream);
+				});
+			})();
+		} else if (_pull.equal(xarray[0])) {
+			var stream = xarray[1];
+			evalAsync(stream, env, function (err, _env, _, s) {
+				if (s instanceof Object && s.__itype__ === 'stream') cb(null, env, null, s.value);else if (s instanceof Array) cb(null, env, null, s.shift());else if (s instanceof Object && s.__itype__ === 'sequence') cb(null, env, null, s.pull());else cb(new IError("can pull from Streams, Arrays and Sequences"));
+			});
+		} else if (_pop.equal(xarray[0])) {
+			var _arr2 = xarray[1];
+			evalAsync(_arr2, env, function (err, _env, _, arr) {
+				if (arr instanceof Array || arr instanceof Object && arr.__itype__ === 'sequence') cb(null, env, null, arr.pop());else cb(new IError("can pop from Arrays and Sequences"));
+			});
+		} else if (_do.equal(xarray[0])) {
+			var _stream2 = xarray[1];
+			evalAsync(_stream2, env, function (err, _env, _, streamObj) {
+				streamObj.addcb(function (err) {
+					if (err) throw err;
+				});
+			});
+			cb(null, env, null, null);
+		} else if (_include.equal(xarray[0])) {
+			(function () {
+				var includefn = env.get(xarray[0]);
+				evalAsync(xarray[1], env, function (err, _env, _, sourcename) {
+					nextTick(includefn, err, env, cb, sourcename);
+				});
+			})();
+		} else if (_import.equal(xarray[0])) {
+			(function () {
+				//console.log('\n\n\n',env,'\n\n\n');
+				var importfn = env.get(xarray[0]);
+				evalAsync(xarray[1], env, function (err, _env, _, sourcename) {
+					var names = null;
+					if (x.cdr.cdr) names = xarray[2];
+					evalAsync(names, env, function (err, _env, _, namesList) {
+						nextTick(importfn, err, env, cb, sourcename, namesList);
+					});
+				});
+			})();
+		} else {
+			evalAsync(xarray[0], env, function (err, env, _, func) {
+				//console.log (''+xarray[0] +'\n\n'+inspect(func));
+				//console.log("### debug ### "+Cell.stringify(func));
 
-              var args = reduced.args;
-              var params = reduced.params;
-              var body = reduced.body;
+				if (func instanceof Object && func.__itype__ === "env") {
+					//console.log ('__debug__\n\n ' + inspect(func));
+					var acell = x.cdr;
+					var _env2 = new Env(null, null, env);
 
-              mapLimit(args, 32, function (arg, _cb) {
-                //console.log ('debug : ', arg);
-                evalAsync(arg, _env, function (err, __env, _, argval) {
-                  _cb(err, argval);
-                });
-              }, function (err, argvals) {
-                var scope = new Env(Cell.list(params), Cell.list(argvals), _env);
-                //console.log (Cell.stringify(body));
-                //console.log (params, argvals);
-                evalAsync(body, scope, function (err, _, __, val) {
-                  //console.log('Debug ________: '+val);
-                  cb(err, _env, null, val);
-                });
-              });
+					var reduced = func.rho.reduce(acell, _env2);
+					//console.log ('\n\n\n\ndebug: ', inspect(env), '\n\n');
+					if (reduced === null) cb(null, _env2, null, null);else {
+						(function () {
+							//console.log (reduced);
 
-              //evalAsync( reduced.body, reduced.env, (err, _, __, val) => {
-              //cb( err, env, null, val);
-              //});
-            })();
-          }
-        })();
-      } else if (func instanceof Object && func.__itype__ === 'stream') {
-        func.addcb(cb);
-        cb(err, env, null, func.value);
-      } else if (func instanceof Function) {
-        var _args = [];
-        while (x.cdr instanceof Cell) {
-          x = x.cdr;
-          _args.push(x.car);
-        }
+							var args = reduced.args;
+							var params = reduced.params;
+							var body = reduced.body;
 
-        var _evalArg = function _evalArg(arg, _cb) {
-          evalAsync(arg, env, function (err, env, _, argval) {
-            _cb(err, argval);
-          });
-        };
+							var scope = new Env(Cell.list(params), Cell.list(args), _env2);
+							var cache = Object.create(null);
+							scope.getAsync = function (x, _cb) {
+								if (cache[x.symbol]) _cb(null, scope, null, cache[x.symbol]);else if (scope.map.has(x.symbol)) {
+									evalAsync(scope.map.get(x.symbol), scope, function (err, _env, _, val) {
+										cache[x.symbol] = val;
+										_cb(null, scope, null, val);
+									});
+								} else _cb(null, scope, null, scope.get(x));
+							};
 
-        mapLimit(_args, 32, _evalArg, function (err, argvals) {
-          //console.log ('\n\n\n\ndebug: ', argvals, '\n', env, '\n\n');
-          var _env = new Env(null, null, env);
-          func.apply(undefined, [err, _env, cb].concat(toConsumableArray(argvals)));
-        });
-      } else {
-        cb(new IError('can not evaluate list ' + Cell.stringify(x)));
-      }
-    });
-  }
+							evalAsync(body, scope, cb);
+						})();
+					}
+					/*  
+     	mapLimit (args, 32, (arg, _cb) => {
+     		//console.log ('debug : ', arg);
+     		evalAsync( arg, _env, (err, __env, _, argval) => {
+     			_cb( err, argval);
+     		});
+     	},
+     		(err, argvals) => {
+     		let scope = new Env (Cell.list(params), Cell.list(argvals), _env);
+     		//console.log (Cell.stringify(body));
+     		//console.log (params, argvals);
+     		evalAsync( body, scope, (err, _, __, val) => {
+     			//console.log('Debug ________: '+val);
+     			cb( err, _env, null, val);
+     		});
+     	});
+     		//evalAsync( reduced.body, reduced.env, (err, _, __, val) => {
+     		//cb( err, env, null, val);
+     	//});
+     }
+     */
+				} else if (func instanceof Object && func.__itype__ === 'stream') {
+					func.addcb(cb);
+					cb(err, env, null, func.value);
+				} else if (func instanceof Object && func.__itype__ === 'specialform') {
+					func = func.func;
+					var _args = xarray.slice(1);
+					//while (x.cdr instanceof Cell) {
+					//x = x.cdr;
+					//args.push (xarray[0]);
+					//}
+					//cellToArr (x.cdr, [], env, (err, env, _, args) => {
+					var _env3 = new Env(null, null, env);
+					func.apply(undefined, [null, _env3, cb].concat(toConsumableArray(_args)));
+					//});
+				} else if (func instanceof Function) {
+					var _args2 = xarray.slice(1);
+					//while (x.cdr instanceof Cell) {
+					//x = x.cdr;
+					//args.push (xarray[0]);
+					//}
+					//cellToArr (x.cdr, [], env, (err, env, _, args) => {
+					var _evalArg = function _evalArg(arg, _cb) {
+						evalAsync(arg, env, function (err, env, _, argval) {
+							_cb(err, argval);
+						});
+					};
+
+					mapLimit(_args2, 32, _evalArg, function (err, argvals) {
+						//console.log ('\n\n\n\ndebug: ', argvals, '\n', env, '\n\n');
+						var _env = new Env(null, null, env);
+						func.apply(undefined, [err, _env, cb].concat(toConsumableArray(argvals)));
+					});
+					//});
+				} else {
+					//cb (new IError ('can not evaluate list '+Cell.stringify(x)), env, null, x);
+					cb(null, env, null, Cell.list(xarray));
+				}
+			});
+		}
+	});
 }
 
 /**
@@ -6069,8 +6163,8 @@ function fxAsync(f) {
       }
     };
 
-    var $catch = function $catch(_errclass, catchFn) {
-      if (err instanceof _errclass) catchFn();
+    var $catch = function $catch(catchFn) {
+      if (err) catchFn(err);
     };
 
     var $yield = function $yield(retval) {
@@ -6332,7 +6426,7 @@ var Lexer = function () {
   }, {
     key: 'isOp',
     value: function isOp(ch) {
-      return (/[\(\)\{\}\[\]\']/g.test(ch)
+      return (/[\(\)\{\}\[\]\':]/g.test(ch)
       );
     }
   }, {
@@ -6391,9 +6485,15 @@ var Parser = function () {
       val = this.parseAtom();
 
       while (val !== end && val !== Lexer.eps) {
-        if (val === ')' || val === ']' || val === '}') this.error('Parenthesis/Bracket mismatch');
+        if (val === ')' || val === ']' || val === '}') this.error('Parenthesis/Bracket/Brace mismatch');
 
-        cur.cdr = new Cell(val);
+        if (val === ':') {
+          val = this.parseAtom();
+          cur.cdr = val;
+          if (this.parseAtom() !== end) this.error(end + ' required here !');
+          return root;
+        } else cur.cdr = new Cell(val);
+
         cur = cur.cdr;
         val = this.parseAtom();
       }
@@ -6443,7 +6543,7 @@ var Parser = function () {
  *
  */
 
-function _eval(err, env, cb, src, name) {
+function _eval$1(err, env, cb, src, name) {
   if (!name) name = 'unnamed';
   var p = new Parser({ name: name, buffer: src });
   nextTick(evalAsync, p.parse(), globalenv(), function (err, _env, _cb, val) {
@@ -6530,7 +6630,7 @@ var globalenv = function () {
   var _globalenv = new Env(null, null, null, true);
   _globalenv.sync();
   _globalenv.bind(new IronSymbol('_fx'), fx);
-  _globalenv.bind(new IronSymbol('_eval'), _eval);
+  _globalenv.bind(new IronSymbol('_eval'), _eval$1);
   _globalenv.bind(new IronSymbol('_eval!'), _eval_unsafe);
   _globalenv.bind(new IronSymbol('_echo'), fxSync(echo));
 

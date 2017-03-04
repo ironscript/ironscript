@@ -46,10 +46,17 @@ export default class Parser {
     
     while (val !== end && val !== Lexer.eps) {
       if (val === ')' || val === ']' || val === '}')
-        this.error ('Parenthesis/Bracket mismatch');
+        this.error ('Parenthesis/Bracket/Brace mismatch');
+			
+			if (val === ':') {
+				val = this.parseAtom();
+				cur.cdr = val;
+				if (this.parseAtom() !== end) this.error (end+' required here !');
+				return root;
+			}
+			else cur.cdr = new Cell (val);
       
-      cur.cdr = new Cell (val);
-      cur = cur.cdr;
+			cur = cur.cdr;
       val = this.parseAtom();
     } 
     return root;

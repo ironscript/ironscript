@@ -34,7 +34,9 @@ _begin
     (_if (== n 0) 1 (* n (! (- n 1) ) ) ) 
   ))
 
-  (_rho '(@a + @b) (+ @a @b))
+	
+
+  (_rho (@a + @b) (+ @a @b) )
   (_rho '(@a + @b + @c) (+ [@a + @b] @c))
   
   (_self 1 + 2 + 3)
@@ -63,6 +65,48 @@ _begin
   [[5 !] should be 120]
   [(twice 8) should be 16]
   [(twice 4) should be 3]
+
+
+
+
+
+  (_echo (_try ( @{ $throw(1);}@ ) "caught the error") )
+  
+	
+	(_def variadic (_fn (a : b) (+ a :b) ) )
+	(_echo (variadic 1 2 3 4 5 6 7 8 9) )
+	(_echo (variadic 1 ) )
+
+	;(_echo (_ (_cons + (variadic 1 2 3) ) ) )
+
+	(_def sum (_fn (arg1 : args) (_if args (+ arg1 (sum :args) )  arg1 ) ) ) 
+	
+	(_echo (sum 1 2 3 4 5 ) )
+
+	(_let a (1 2 3 4 5) )
+	(_echo (_seq :a) )
+
+	(1 2 3)
+
+	(_def cond (_fr (exp : exps) 
+		(_if (_ (_car exp)) 
+			(_ (_car (_cdr exp) ) )
+			(_ (cond :exps) ) 
+		)
+	) )
+
+
+	(_echo (cond 
+		( (== 1 2) 1)
+		( (== 2 2) 2)
+		( (== 3 3) 3)
+		( (== 3 1) 4)
+	) )
+
+
+
+
+
 
 
 
