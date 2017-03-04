@@ -146,24 +146,24 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 			});
 		}
 		else if (_seq.equal(xarray[0])) {
-			//let args = [];
+			let args = xarray.slice(1);
 			//while (x.cdr instanceof Cell) {
 				//x = x.cdr;
 				//args.push (xarray[0]);
 			//}
 			
-			cellToArr (x.cdr, [], env, (err, env, _, args) => {
-				let evalArg = (arg, _cb) => {
-					evalAsync( arg, env, (err, env, _, argval) => {
-						_cb( err, argval);
-					});
-				};
-				
-				mapLimit (args, 32, evalArg, (err, argvals) => {
-					//console.log(argvals);
-					cb( err, env, null, new Sequence (argvals) );
+			//cellToArr (x.cdr, [], env, (err, env, _, args) => {
+			let evalArg = (arg, _cb) => {
+				evalAsync( arg, env, (err, env, _, argval) => {
+					_cb( err, argval);
 				});
+			};
+			
+			mapLimit (args, 32, evalArg, (err, argvals) => {
+				//console.log(argvals);
+				cb( err, env, null, new Sequence (argvals) );
 			});
+			//});
 		}
 		else if (_map.equal(xarray[0]) || _filter.equal(xarray[0])) {
 			let _seqn = xarray[1];
@@ -206,7 +206,7 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 			});
 		}
 		else if (_dot.equal(xarray[0])) {
-			//let args = [];
+			let args = xarray.slice(1);
 			let cmd = x.ctx;
 			if (x.ctx === null) cmd = 'get';
 
@@ -217,20 +217,20 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 				//args.push (xarray[0]);
 			//}
 			
-			cellToArr (x.cdr, [], env, (err, env, _, args) => {
-				let evalArg = (arg, _cb) => {
-					evalAsync( arg, env, (err, env, _, argval) => {
-						_cb( err, argval);
-					});
-				};
-				
-				mapLimit (args, 32, evalArg, (err, argvals) => {
-					//console.log(argvals);
-					let ref = new Reference (cmd, ...argvals);
-					//console.log('### Return of Ref: '+ref.value);
-					cb( err, env, null, ref.value);
+			//cellToArr (x.cdr, [], env, (err, env, _, args) => {
+			let evalArg = (arg, _cb) => {
+				evalAsync( arg, env, (err, env, _, argval) => {
+					_cb( err, argval);
 				});
-			});	
+			};
+			
+			mapLimit (args, 32, evalArg, (err, argvals) => {
+				//console.log(argvals);
+				let ref = new Reference (cmd, ...argvals);
+				//console.log('### Return of Ref: '+ref.value);
+				cb( err, env, null, ref.value);
+			});
+			//});	
 		}
 
 		else if (_if.equal(xarray[0])) {
@@ -310,10 +310,12 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 			let resolution = xarray[2];
 			evalAsync( pattern, env, (err, _env, _, val) => {
 				//console.log('debug-pattern: ', inspect(val));
-				let sts = env.rho.accept(val, resolution);
-				//console.log ('\n\n\n\ndebug: ', inspect(env), '\n\n');
-				if (sts instanceof IError) cb( sts);
-				else cb( null, env, null, env);
+				//evalAsync (resolution, env, (err, _env, _, resolution) => {
+					let sts = env.rho.accept(val, resolution);
+					//console.log ('\n\n\n\ndebug: ', inspect(env), '\n\n');
+					if (sts instanceof IError) cb( sts);
+					else cb( null, env, null, env);
+				//});
 			});
 		}
 		else if (_begin.equal(xarray[0]) || _sync.equal(xarray[0]) || _coll.equal(xarray[0])) {
@@ -331,31 +333,32 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 				unsyncFlag = true;
 				_env.sync();
 			}
-			cellToArr (x.cdr, [], _env, (err, _env, _, args) => {
-				let i = 0;
-				whilst (
-					//() => { return x.cdr instanceof Cell; },
-					() => { return i<args.length; },
-					(callback) => {
-						//x = x.cdr;
-						evalAsync( args[i], _env, (err, __env, _, argval) => {
-							i += 1;
-							nextTick (callback, err, argval);
-						});
-					},
+			//cellToArr (x.cdr, [], _env, (err, _env, _, args) => {
+			let args = xarray.slice(1);
+			let i = 0;
+			whilst (
+				//() => { return x.cdr instanceof Cell; },
+				() => { return i<args.length; },
+				(callback) => {
+					//x = x.cdr;
+					evalAsync( args[i], _env, (err, __env, _, argval) => {
+						i += 1;
+						nextTick (callback, err, argval);
+					});
+				},
 
-					(err, res) => {
-						//if(isColl)console.log(_env.collection.obj);
-						if (unsyncFlag) _env.unsync();
-						if (isColl) cb( err, env, null, _env.collection.obj);
-						else cb( err, _env, null, res);
-					}
-				);
-			});
+				(err, res) => {
+					//if(isColl)console.log(_env.collection.obj);
+					if (unsyncFlag) _env.unsync();
+					if (isColl) cb( err, env, null, _env.collection.obj);
+					else cb( err, _env, null, res);
+				}
+			);
+			//});
 		}
 		else if (_stream.equal(xarray[0])) {
 			let func = xarray[1];
-			let args = x.cdr.cdr;
+			let arglist = xarray.slice(2);
 
 			//let arglist = [];
 			//while (args instanceof Cell) {
@@ -363,42 +366,42 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 				//args = args.cdr;
 			//}
 			
-			cellToArr (args, [], env, (err, env, _, arglist) => {
+			//cellToArr (args, [], env, (err, env, _, arglist) => {
 
 				evalAsync( func, env, (err, _env, _, func) => {
-				 
-					let corefn = (updatefn) => {
-						let argvals = Array(arglist.length);
-						let argflags = [];
-						let argcount = arglist.length;
-						for (let i=0; i<arglist.length; i++) {
-							argflags.push(false);
-							evalAsync( arglist[i], env, (err, _env, _, argval) => {
-								argvals[i] = argval;
-								if (argval !== null && argval !== undefined) {
-									//debugger;
-									if (!argflags[i]) {
-										argflags[i] = true;
-										argcount--;
-									}
+			 
+				let corefn = (updatefn) => {
+					let argvals = Array(arglist.length);
+					let argflags = [];
+					let argcount = arglist.length;
+					for (let i=0; i<arglist.length; i++) {
+						argflags.push(false);
+						evalAsync( arglist[i], env, (err, _env, _, argval) => {
+							argvals[i] = argval;
+							if (argval !== null && argval !== undefined) {
+								//debugger;
+								if (!argflags[i]) {
+									argflags[i] = true;
+									argcount--;
 								}
-								else {
-									if (argflags[i]) {
-										argflags[i] = false;
-										argcount++;
-									}
+							}
+							else {
+								if (argflags[i]) {
+									argflags[i] = false;
+									argcount++;
 								}
-								if (argcount === 0) func (err, env, (err, _env, _cb, retval) => {
-										updatefn(retval);
-									} , ...argvals);
-							});
-						}
-					};
-					
-					cb (err, env, null, new Stream(corefn, env) );
+							}
+							if (argcount === 0) func (err, env, (err, _env, _cb, retval) => {
+									updatefn(retval);
+								} , ...argvals);
+						});
+					}
+				};
+				
+				cb (err, env, null, new Stream(corefn, env) );
 
-				});
 			});
+			//});
 		}
 		else if (_on.equal(xarray[0])) {
 			let controlStream = xarray[1];
@@ -528,39 +531,40 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 				
 				else if (func instanceof Object && func.__itype__ === 'specialform') {
 					func = func.func;
-					//let args = [];
+					let args = xarray.slice(1);
 					//while (x.cdr instanceof Cell) {
 						//x = x.cdr;
 						//args.push (xarray[0]);
 					//}
-					cellToArr (x.cdr, [], env, (err, env, _, args) => {
-						let _env = new Env (null, null, env);
-						func (null, _env, cb, ...args);
-					});
+					//cellToArr (x.cdr, [], env, (err, env, _, args) => {
+					let _env = new Env (null, null, env);
+					func (null, _env, cb, ...args);
+					//});
 				}
 
 				else if (func instanceof Function) {
-					//let args = [];
+					let args = xarray.slice(1);
 					//while (x.cdr instanceof Cell) {
 						//x = x.cdr;
 						//args.push (xarray[0]);
 					//}
-					cellToArr (x.cdr, [], env, (err, env, _, args) => {
-						let evalArg = (arg, _cb) => {
-							evalAsync( arg, env, (err, env, _, argval) => {
-								_cb( err, argval);
-							});
-						};
-						
-						mapLimit (args, 32, evalArg, (err, argvals) => {
-							//console.log ('\n\n\n\ndebug: ', argvals, '\n', env, '\n\n');
-							let _env = new Env (null, null, env);
-							func (err, _env, cb, ...argvals);
+					//cellToArr (x.cdr, [], env, (err, env, _, args) => {
+					let evalArg = (arg, _cb) => {
+						evalAsync( arg, env, (err, env, _, argval) => {
+							_cb( err, argval);
 						});
+					};
+					
+					mapLimit (args, 32, evalArg, (err, argvals) => {
+						//console.log ('\n\n\n\ndebug: ', argvals, '\n', env, '\n\n');
+						let _env = new Env (null, null, env);
+						func (err, _env, cb, ...argvals);
 					});
+					//});
 				}
 				else {
-					cb (new IError ('can not evaluate list '+Cell.stringify(x)), env, null, x);
+					//cb (new IError ('can not evaluate list '+Cell.stringify(x)), env, null, x);
+					cb (null, env, null, Cell.list(xarray));
 				}
 			});
 		}

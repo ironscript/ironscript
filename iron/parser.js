@@ -51,7 +51,7 @@ export default class Parser {
 			if (val === ':') {
 				val = this.parseAtom();
 				cur.cdr = val;
-				if (this.parseAtom() !== end) this.error ('Closing Parenthesis required here !');
+				if (this.parseAtom() !== end) this.error (end+' required here !');
 				return root;
 			}
 			else cur.cdr = new Cell (val);

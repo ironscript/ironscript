@@ -101,6 +101,10 @@ export default class Rho {
       if (state instanceof IError) return state;
       pcell = pcell.cdr;
     }
+
+		if (pcell !== null) {//TODO
+			//state = state.accept
+		}
    
 
     //console.log('debug: ',varvec);

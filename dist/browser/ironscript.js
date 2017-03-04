@@ -4920,6 +4920,10 @@ var Rho = function () {
         pcell = pcell.cdr;
       }
 
+      if (pcell !== null) {} //TODO
+      //state = state.accept
+
+
       //console.log('debug: ',varvec);
       this.resolutionVector.push(new Resolution(varvec, resolutionBody));
       state.makeFinal(this.size);
@@ -5628,24 +5632,24 @@ function evalAsync(x, env) {
 				} else cb(null, env, null, null);
 			});
 		} else if (_seq.equal(xarray[0])) {
-			//let args = [];
+			var args = xarray.slice(1);
 			//while (x.cdr instanceof Cell) {
 			//x = x.cdr;
 			//args.push (xarray[0]);
 			//}
 
-			cellToArr(x.cdr, [], env, function (err, env, _, args) {
-				var evalArg = function evalArg(arg, _cb) {
-					evalAsync(arg, env, function (err, env, _, argval) {
-						_cb(err, argval);
-					});
-				};
-
-				mapLimit(args, 32, evalArg, function (err, argvals) {
-					//console.log(argvals);
-					cb(err, env, null, new Sequence(argvals));
+			//cellToArr (x.cdr, [], env, (err, env, _, args) => {
+			var evalArg = function evalArg(arg, _cb) {
+				evalAsync(arg, env, function (err, env, _, argval) {
+					_cb(err, argval);
 				});
+			};
+
+			mapLimit(args, 32, evalArg, function (err, argvals) {
+				//console.log(argvals);
+				cb(err, env, null, new Sequence(argvals));
 			});
+			//});
 		} else if (_map.equal(xarray[0]) || _filter$1.equal(xarray[0])) {
 			(function () {
 				var _seqn = xarray[1];
@@ -5731,7 +5735,7 @@ function evalAsync(x, env) {
 			})();
 		} else if (_dot.equal(xarray[0])) {
 			(function () {
-				//let args = [];
+				var args = xarray.slice(1);
 				var cmd = x.ctx;
 				if (x.ctx === null) cmd = 'get';
 
@@ -5742,20 +5746,20 @@ function evalAsync(x, env) {
 				//args.push (xarray[0]);
 				//}
 
-				cellToArr(x.cdr, [], env, function (err, env, _, args) {
-					var evalArg = function evalArg(arg, _cb) {
-						evalAsync(arg, env, function (err, env, _, argval) {
-							_cb(err, argval);
-						});
-					};
-
-					mapLimit(args, 32, evalArg, function (err, argvals) {
-						//console.log(argvals);
-						var ref = new (Function.prototype.bind.apply(Reference, [null].concat([cmd], toConsumableArray(argvals))))();
-						//console.log('### Return of Ref: '+ref.value);
-						cb(err, env, null, ref.value);
+				//cellToArr (x.cdr, [], env, (err, env, _, args) => {
+				var evalArg = function evalArg(arg, _cb) {
+					evalAsync(arg, env, function (err, env, _, argval) {
+						_cb(err, argval);
 					});
+				};
+
+				mapLimit(args, 32, evalArg, function (err, argvals) {
+					//console.log(argvals);
+					var ref = new (Function.prototype.bind.apply(Reference, [null].concat([cmd], toConsumableArray(argvals))))();
+					//console.log('### Return of Ref: '+ref.value);
+					cb(err, env, null, ref.value);
 				});
+				//});	
 			})();
 		} else if (_if.equal(xarray[0])) {
 			(function () {
@@ -5832,9 +5836,11 @@ function evalAsync(x, env) {
 				var resolution = xarray[2];
 				evalAsync(pattern, env, function (err, _env, _, val) {
 					//console.log('debug-pattern: ', inspect(val));
+					//evalAsync (resolution, env, (err, _env, _, resolution) => {
 					var sts = env.rho.accept(val, resolution);
 					//console.log ('\n\n\n\ndebug: ', inspect(env), '\n\n');
 					if (sts instanceof IError) cb(sts);else cb(null, env, null, env);
+					//});
 				});
 			})();
 		} else if (_begin.equal(xarray[0]) || _sync.equal(xarray[0]) || _coll.equal(xarray[0])) {
@@ -5851,29 +5857,30 @@ function evalAsync(x, env) {
 					unsyncFlag = true;
 					_env.sync();
 				}
-				cellToArr(x.cdr, [], _env, function (err, _env, _, args) {
-					var i = 0;
-					whilst(
-					//() => { return x.cdr instanceof Cell; },
-					function () {
-						return i < args.length;
-					}, function (callback) {
-						//x = x.cdr;
-						evalAsync(args[i], _env, function (err, __env, _, argval) {
-							i += 1;
-							nextTick(callback, err, argval);
-						});
-					}, function (err, res) {
-						//if(isColl)console.log(_env.collection.obj);
-						if (unsyncFlag) _env.unsync();
-						if (isColl) cb(err, env, null, _env.collection.obj);else cb(err, _env, null, res);
+				//cellToArr (x.cdr, [], _env, (err, _env, _, args) => {
+				var args = xarray.slice(1);
+				var i = 0;
+				whilst(
+				//() => { return x.cdr instanceof Cell; },
+				function () {
+					return i < args.length;
+				}, function (callback) {
+					//x = x.cdr;
+					evalAsync(args[i], _env, function (err, __env, _, argval) {
+						i += 1;
+						nextTick(callback, err, argval);
 					});
+				}, function (err, res) {
+					//if(isColl)console.log(_env.collection.obj);
+					if (unsyncFlag) _env.unsync();
+					if (isColl) cb(err, env, null, _env.collection.obj);else cb(err, _env, null, res);
 				});
+				//});
 			})();
 		} else if (_stream.equal(xarray[0])) {
 			(function () {
 				var func = xarray[1];
-				var args = x.cdr.cdr;
+				var arglist = xarray.slice(2);
 
 				//let arglist = [];
 				//while (args instanceof Cell) {
@@ -5881,45 +5888,45 @@ function evalAsync(x, env) {
 				//args = args.cdr;
 				//}
 
-				cellToArr(args, [], env, function (err, env, _, arglist) {
+				//cellToArr (args, [], env, (err, env, _, arglist) => {
 
-					evalAsync(func, env, function (err, _env, _, func) {
+				evalAsync(func, env, function (err, _env, _, func) {
 
-						var corefn = function corefn(updatefn) {
-							var argvals = Array(arglist.length);
-							var argflags = [];
-							var argcount = arglist.length;
+					var corefn = function corefn(updatefn) {
+						var argvals = Array(arglist.length);
+						var argflags = [];
+						var argcount = arglist.length;
 
-							var _loop = function _loop(i) {
-								argflags.push(false);
-								evalAsync(arglist[i], env, function (err, _env, _, argval) {
-									argvals[i] = argval;
-									if (argval !== null && argval !== undefined) {
-										//debugger;
-										if (!argflags[i]) {
-											argflags[i] = true;
-											argcount--;
-										}
-									} else {
-										if (argflags[i]) {
-											argflags[i] = false;
-											argcount++;
-										}
+						var _loop = function _loop(_i) {
+							argflags.push(false);
+							evalAsync(arglist[_i], env, function (err, _env, _, argval) {
+								argvals[_i] = argval;
+								if (argval !== null && argval !== undefined) {
+									//debugger;
+									if (!argflags[_i]) {
+										argflags[_i] = true;
+										argcount--;
 									}
-									if (argcount === 0) func.apply(undefined, [err, env, function (err, _env, _cb, retval) {
-										updatefn(retval);
-									}].concat(toConsumableArray(argvals)));
-								});
-							};
-
-							for (var i = 0; i < arglist.length; i++) {
-								_loop(i);
-							}
+								} else {
+									if (argflags[_i]) {
+										argflags[_i] = false;
+										argcount++;
+									}
+								}
+								if (argcount === 0) func.apply(undefined, [err, env, function (err, _env, _cb, retval) {
+									updatefn(retval);
+								}].concat(toConsumableArray(argvals)));
+							});
 						};
 
-						cb(err, env, null, new Stream(corefn, env));
-					});
+						for (var _i = 0; _i < arglist.length; _i++) {
+							_loop(_i);
+						}
+					};
+
+					cb(err, env, null, new Stream(corefn, env));
 				});
+				//});
 			})();
 		} else if (_on.equal(xarray[0])) {
 			(function () {
@@ -6035,36 +6042,37 @@ function evalAsync(x, env) {
 					cb(err, env, null, func.value);
 				} else if (func instanceof Object && func.__itype__ === 'specialform') {
 					func = func.func;
-					//let args = [];
+					var _args = xarray.slice(1);
 					//while (x.cdr instanceof Cell) {
 					//x = x.cdr;
 					//args.push (xarray[0]);
 					//}
-					cellToArr(x.cdr, [], env, function (err, env, _, args) {
-						var _env = new Env(null, null, env);
-						func.apply(undefined, [null, _env, cb].concat(toConsumableArray(args)));
-					});
+					//cellToArr (x.cdr, [], env, (err, env, _, args) => {
+					var _env3 = new Env(null, null, env);
+					func.apply(undefined, [null, _env3, cb].concat(toConsumableArray(_args)));
+					//});
 				} else if (func instanceof Function) {
-					//let args = [];
+					var _args2 = xarray.slice(1);
 					//while (x.cdr instanceof Cell) {
 					//x = x.cdr;
 					//args.push (xarray[0]);
 					//}
-					cellToArr(x.cdr, [], env, function (err, env, _, args) {
-						var evalArg = function evalArg(arg, _cb) {
-							evalAsync(arg, env, function (err, env, _, argval) {
-								_cb(err, argval);
-							});
-						};
-
-						mapLimit(args, 32, evalArg, function (err, argvals) {
-							//console.log ('\n\n\n\ndebug: ', argvals, '\n', env, '\n\n');
-							var _env = new Env(null, null, env);
-							func.apply(undefined, [err, _env, cb].concat(toConsumableArray(argvals)));
+					//cellToArr (x.cdr, [], env, (err, env, _, args) => {
+					var _evalArg = function _evalArg(arg, _cb) {
+						evalAsync(arg, env, function (err, env, _, argval) {
+							_cb(err, argval);
 						});
+					};
+
+					mapLimit(_args2, 32, _evalArg, function (err, argvals) {
+						//console.log ('\n\n\n\ndebug: ', argvals, '\n', env, '\n\n');
+						var _env = new Env(null, null, env);
+						func.apply(undefined, [err, _env, cb].concat(toConsumableArray(argvals)));
 					});
+					//});
 				} else {
-					cb(new IError('can not evaluate list ' + Cell.stringify(x)), env, null, x);
+					//cb (new IError ('can not evaluate list '+Cell.stringify(x)), env, null, x);
+					cb(null, env, null, Cell.list(xarray));
 				}
 			});
 		}
@@ -6482,7 +6490,7 @@ var Parser = function () {
         if (val === ':') {
           val = this.parseAtom();
           cur.cdr = val;
-          if (this.parseAtom() !== end) this.error('Closing Parenthesis required here !');
+          if (this.parseAtom() !== end) this.error(end + ' required here !');
           return root;
         } else cur.cdr = new Cell(val);
 
