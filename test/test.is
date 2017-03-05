@@ -14,12 +14,18 @@ _begin
     //console.log(vdom);  
   }@ )
 
-  
+	(_rho (@a = @b) (_let @a @b) )
+	
+
+	[@a = (x y)]
+	[@a = (2 3)]
+
+	(_echo @a x y )
+
 
   (_include "stdlib")
 
   
-	(_rho (@a = @b) (_let @a @b) )
   
   (_def a 1) 
 	(_def b 3)
