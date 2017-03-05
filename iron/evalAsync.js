@@ -254,14 +254,13 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 		else if (_def.equal(xarray[0]) || _let.equal(xarray[0])) {
 			let name = xarray[1];
 			let val = xarray[2];
-			if (name instanceof IronSymbol) {
-				evalAsync( val, env, (err, _env, _, value) => {
-					let sts = env.bind(name, value);
-					if (!sts) cb( 'can _def only inside a _begin block');
-					else cb( null, env, null, value);
-				});
-			}
-			else if (name instanceof Cell && _dot.equal(name.car)) {
+			
+			if (!env.syncLock) cb( 'can _def/_let only inside a _begin/_sync block');
+			
+			if (name instanceof IronSymbol && name.startsWith('@'))
+				name = env.get(name);
+
+			if (name instanceof Cell && _dot.equal(name.car)) {
 				name.ctx = 'set';
 				//console.log(Cell.stringify(name));
 				evalAsync( name, env, (err, _env, _, ref) => {
@@ -271,14 +270,44 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 					});
 				});
 			}
-			else cb( ""+Cell.stringify(name)+"is not a valid LValue, Symbols and References are the only valid LValues");
+			else if (name instanceof Cell) {
+				evalAsync (val, env, (err, _env, _, value) => {
+					if (value instanceof Cell) {
+						cellToArr (value, [], env, (err, _env, _, args) => { 
+							let evalArg = (arg, _cb) => {
+								evalAsync( arg, env, (err, env, _, argval) => {
+									_cb( err, argval);
+								});
+							};
+						
+							mapLimit (args, 32, evalArg, (err, argvals) => {
+								let lst = Cell.list(argvals);
+								let sts = env.bind(name, lst);
+								if (!sts) cb( 'can _def/_let only inside a _begin/_sync block');
+								else cb( null, env, null, lst);
+							});
+						});
+					}
+					else cb ('Expected a List as the RValue');
+				});
+			}
+			else if (name instanceof IronSymbol) {
+				evalAsync( val, env, (err, _env, _, value) => {
+					let sts = env.bind(name, value);
+					if (!sts) cb( 'can _def/_let only inside a _begin/_sync block');
+					else cb( null, env, null, value);
+				});
+			}
+			else cb( ""+Cell.stringify(name)+"is not a valid LValue, Symbols, List of Symbols and References are the only valid LValues");
 		}
 		else if (_assign_unsafe.equal(xarray[0]) || _set_unsafe.equal(xarray[0])) {
 			let name = xarray[1];
 			let val = xarray[2];
+			if (name instanceof IronSymbol && name.startsWith('@'))
+				name = env.get(name);
 			evalAsync( val, env, (err, _env, _, value) => {
 				let sts = env.find(name).bind(name, value);
-				if (!sts) cb( 'can _def only inside a _begin block');
+				if (!sts) cb( 'can _assign!/_set! only inside a _begin/_sync block');
 				else cb( null, env, null, value);
 			});
 		}
@@ -472,11 +501,10 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 				if (func instanceof Object && func.__itype__ === "env") {
 					//console.log ('__debug__\n\n ' + inspect(func));
 					let acell = x.cdr;
-					let _env = new Env (null, null, env);
-
-					let reduced = func.rho.reduce (acell, _env);
+					let reduced = func.rho.reduce (acell, env);
 					//console.log ('\n\n\n\ndebug: ', inspect(env), '\n\n');
-					if (reduced === null) cb( null, _env, null, null);
+					if (reduced === null)  //cb( null, env, null, null);
+						evalAsync ( Cell.list(xarray.slice(1)), env, cb);
 					else {
 						//console.log (reduced);
 
@@ -484,7 +512,8 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 						let params = reduced.params;
 						let body = reduced.body;
 						
-						let scope = new Env (Cell.list(params), Cell.list(args), _env);
+						let scope = new Env (Cell.list(params), Cell.list(args), env);
+						scope.syncLock = env.syncLock;
 						let cache = Object.create(null);
 						scope.getAsync = (x, _cb) => {
 							if (cache[x.symbol]) _cb (null, scope, null, cache[x.symbol]);
@@ -496,6 +525,7 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 							}
 							else _cb (null, scope, null, scope.get(x));
 						}
+						scope.bind = (key, val) => { return env.bind(key, val); };
 
 						evalAsync (body, scope, cb);
 					}

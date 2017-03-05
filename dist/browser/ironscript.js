@@ -5784,12 +5784,12 @@ function evalAsync(x, env) {
 			(function () {
 				var name = xarray[1];
 				var val = xarray[2];
-				if (name instanceof IronSymbol) {
-					evalAsync(val, env, function (err, _env, _, value) {
-						var sts = env.bind(name, value);
-						if (!sts) cb('can _def only inside a _begin block');else cb(null, env, null, value);
-					});
-				} else if (name instanceof Cell && _dot.equal(name.car)) {
+
+				if (!env.syncLock) cb('can _def/_let only inside a _begin/_sync block');
+
+				if (name instanceof IronSymbol && name.startsWith('@')) name = env.get(name);
+
+				if (name instanceof Cell && _dot.equal(name.car)) {
 					name.ctx = 'set';
 					//console.log(Cell.stringify(name));
 					evalAsync(name, env, function (err, _env, _, ref) {
@@ -5798,15 +5798,39 @@ function evalAsync(x, env) {
 							cb(err, env, null, ref(value));
 						});
 					});
-				} else cb("" + Cell.stringify(name) + "is not a valid LValue, Symbols and References are the only valid LValues");
+				} else if (name instanceof Cell) {
+					evalAsync(val, env, function (err, _env, _, value) {
+						if (value instanceof Cell) {
+							cellToArr(value, [], env, function (err, _env, _, args) {
+								var evalArg = function evalArg(arg, _cb) {
+									evalAsync(arg, env, function (err, env, _, argval) {
+										_cb(err, argval);
+									});
+								};
+
+								mapLimit(args, 32, evalArg, function (err, argvals) {
+									var lst = Cell.list(argvals);
+									var sts = env.bind(name, lst);
+									if (!sts) cb('can _def/_let only inside a _begin/_sync block');else cb(null, env, null, lst);
+								});
+							});
+						} else cb('Expected a List as the RValue');
+					});
+				} else if (name instanceof IronSymbol) {
+					evalAsync(val, env, function (err, _env, _, value) {
+						var sts = env.bind(name, value);
+						if (!sts) cb('can _def/_let only inside a _begin/_sync block');else cb(null, env, null, value);
+					});
+				} else cb("" + Cell.stringify(name) + "is not a valid LValue, Symbols, List of Symbols and References are the only valid LValues");
 			})();
 		} else if (_assign_unsafe.equal(xarray[0]) || _set_unsafe.equal(xarray[0])) {
 			(function () {
 				var name = xarray[1];
 				var val = xarray[2];
+				if (name instanceof IronSymbol && name.startsWith('@')) name = env.get(name);
 				evalAsync(val, env, function (err, _env, _, value) {
 					var sts = env.find(name).bind(name, value);
-					if (!sts) cb('can _def only inside a _begin block');else cb(null, env, null, value);
+					if (!sts) cb('can _assign!/_set! only inside a _begin/_sync block');else cb(null, env, null, value);
 				});
 			})();
 		} else if (_push.equal(xarray[0])) {
@@ -5990,11 +6014,10 @@ function evalAsync(x, env) {
 				if (func instanceof Object && func.__itype__ === "env") {
 					//console.log ('__debug__\n\n ' + inspect(func));
 					var acell = x.cdr;
-					var _env2 = new Env(null, null, env);
-
-					var reduced = func.rho.reduce(acell, _env2);
+					var reduced = func.rho.reduce(acell, env);
 					//console.log ('\n\n\n\ndebug: ', inspect(env), '\n\n');
-					if (reduced === null) cb(null, _env2, null, null);else {
+					if (reduced === null) //cb( null, env, null, null);
+						evalAsync(Cell.list(xarray.slice(1)), env, cb);else {
 						(function () {
 							//console.log (reduced);
 
@@ -6002,7 +6025,8 @@ function evalAsync(x, env) {
 							var params = reduced.params;
 							var body = reduced.body;
 
-							var scope = new Env(Cell.list(params), Cell.list(args), _env2);
+							var scope = new Env(Cell.list(params), Cell.list(args), env);
+							scope.syncLock = env.syncLock;
 							var cache = Object.create(null);
 							scope.getAsync = function (x, _cb) {
 								if (cache[x.symbol]) _cb(null, scope, null, cache[x.symbol]);else if (scope.map.has(x.symbol)) {
@@ -6011,6 +6035,9 @@ function evalAsync(x, env) {
 										_cb(null, scope, null, val);
 									});
 								} else _cb(null, scope, null, scope.get(x));
+							};
+							scope.bind = function (key, val) {
+								return env.bind(key, val);
 							};
 
 							evalAsync(body, scope, cb);
@@ -6048,8 +6075,8 @@ function evalAsync(x, env) {
 					//args.push (xarray[0]);
 					//}
 					//cellToArr (x.cdr, [], env, (err, env, _, args) => {
-					var _env3 = new Env(null, null, env);
-					func.apply(undefined, [null, _env3, cb].concat(toConsumableArray(_args)));
+					var _env2 = new Env(null, null, env);
+					func.apply(undefined, [null, _env2, cb].concat(toConsumableArray(_args)));
 					//});
 				} else if (func instanceof Function) {
 					var _args2 = xarray.slice(1);
@@ -6606,7 +6633,7 @@ function echo() {
       if (arg instanceof Cell) str += Cell.stringify(arg) + " ";else if (arg instanceof Function) str += '[Function] ';else if (arg instanceof Object && arg.__itype__ === 'collection') {
         str += JSON.stringify(arg.obj) + " ";
         //console.log(arg);
-      } else if (arg instanceof Object && arg.__itype__ === 'sequence') str += JSON.stringify(arg.arr) + " ";else if ((typeof arg === 'undefined' ? 'undefined' : _typeof(arg)) === 'object') str += JSON.stringify(arg) + " ";else str += arg + " ";
+      } else if (arg instanceof Object && arg.__itype__ === 'sequence') str += JSON.stringify(arg.arr) + " ";else if (arg instanceof Object && arg.type === 'ironsymbol') str += arg.symbol + " ";else if ((typeof arg === 'undefined' ? 'undefined' : _typeof(arg)) === 'object') str += JSON.stringify(arg) + " ";else str += arg + " ";
     }
   } catch (err) {
     _didIteratorError = true;

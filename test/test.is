@@ -14,15 +14,30 @@ _begin
     //console.log(vdom);  
   }@ )
 
-  
+	(_rho (@a = @b) (_let @a @b) )
+	
+
+	[@a = (x y)]
+	[@a = (2 3)]
+
+	(_echo @a x y )
+
 
   (_include "stdlib")
 
   
   
   (_def a 1) 
+	(_def b 3)
   (_echo a) 
-  (_echo (+ a a))
+  (_echo [+ a a])
+
+	(_echo a b)
+	[(a b) = (b a)]
+	(_echo a b)
+
+	[(head : tail) = (Ganesh Prasad Sahoo)]
+	(_echo head tail)
 
   
   (_def twice (_fn (n) (+ n n)))
@@ -59,7 +74,7 @@ _begin
 
 
 
-  (_rho '(@a should be @b) (_echo (concat @#a " should be " @b " : " (_if (== @a @b) "passed" "failed" ) ) ) )
+  (_rho (@a should be @b) (_echo (concat @#a " should be " @b " : " (_if (== @a @b) "passed" "failed" ) ) ) )
 
   [(+ 1 2) should be 3]
   [[5 !] should be 120]
@@ -72,7 +87,7 @@ _begin
 
   (_echo (_try ( @{ $throw(1);}@ ) "caught the error") )
   
-	
+
 	(_def variadic (_fn (a : b) (+ a :b) ) )
 	(_echo (variadic 1 2 3 4 5 6 7 8 9) )
 	(_echo (variadic 1 ) )
@@ -80,8 +95,15 @@ _begin
 	;(_echo (_ (_cons + (variadic 1 2 3) ) ) )
 
 	(_def sum (_fn (arg1 : args) (_if args (+ arg1 (sum :args) )  arg1 ) ) ) 
+	(_def sumjs @{
+		var sum = 0;
+		for (var i=0; i<args.length; i++) sum += args[i];
+		$return (sum);
+	}@ )
 	
+
 	(_echo (sum 1 2 3 4 5 ) )
+	(_echo (sumjs 1 2 3 4 5) )
 
 	(_let a (1 2 3 4 5) )
 	(_echo (_seq :a) )
@@ -143,9 +165,15 @@ _begin
 
 
 
+	[myNum = 10]
+	(_echo myNum)
+
   (_def myColl {
-    (_let .name "Ganesh")
-    (_let .roll "112CS0558")
+    ;(_let .name "Ganesh")
+    ;(_let .roll "112CS0558")
+
+		[.name = "Ganesh"]
+		[.roll = "112CS0558"]
   })
 
   (_echo myColl)
