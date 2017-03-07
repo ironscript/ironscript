@@ -514,8 +514,6 @@ var IError = function () {
  *
  */
 
-//import {inspect} from 'util';
-
 var _ANY = new IronSymbol('__internal (any)');
 
 var RhoState = function () {
@@ -537,7 +535,6 @@ var RhoState = function () {
         s = _ANY;
       }
       if (!this.table.has(s.symbol)) this.table.set(s.symbol, new RhoState());
-      //console.log(this.table.get(s.symbol));
       return this.table.get(s.symbol);
     }
   }, {
@@ -545,7 +542,6 @@ var RhoState = function () {
     value: function find(sym, varvec) {
       if (this.table.has(sym.symbol)) return this.table.get(sym.symbol);else if (this.table.has(_ANY.symbol)) {
         varvec.push(sym);
-        //console.log ('\n\n\nvarvec -----', varvec);
         return this.table.get(_ANY.symbol);
       } else return null;
     }
@@ -590,19 +586,16 @@ var Rho = function () {
       var varvec = [];
       var state = this.initialState;
       var pcell = pattern;
-      //console.log ('\n\n\ndebug-rho-pattern: \n-------\n', inspect(pattern));
       while (pcell instanceof Cell) {
-        //console.log ('\n\n\ndebug: \n-------\n', inspect(state));
         state = state.accept(pcell.car, varvec);
         if (state instanceof IError) return state;
         pcell = pcell.cdr;
       }
 
-      if (pcell !== null) {} //TODO
-      //state = state.accept
+      if (pcell !== null) {//TODO
+        //state = state.accept
+      }
 
-
-      //console.log('debug: ',varvec);
       this.resolutionVector.push(new Resolution(varvec, resolutionBody));
       state.makeFinal(this.size);
       this.size++;
@@ -610,42 +603,39 @@ var Rho = function () {
     }
   }, {
     key: 'find',
-    value: function find(cell) {
+    value: function find(cell, env) {
       var state = this.initialState;
       var acell = cell;
       var varvec = [];
 
       while (acell instanceof Cell) {
-        state = state.find(acell.car, varvec);
+        var sym = acell.car;
+        if (sym instanceof IronSymbol && sym.startsWith('@')) {
+          sym = env.get(sym);
+        }
+        state = state.find(sym, varvec);
         if (state === null) break;
         acell = acell.cdr;
       }
       if (state === null || state.finalPointer === null) {
         varvec = [];
         if (this.env.par !== null) {
-          //console.log ('\n\nSEARCHING PARENT ... ... ...\n\n');
-          //console.log ('\n\n\nvarvec ==== ', varvec);
-          var r = this.env.par.rho.find(cell);
-          //console.log ('\n\n\nvarvec ===== ', varvec);
+          var r = this.env.par.rho.find(cell, env);
           return r;
         } else return [null, []];
       }
-      //console.log (inspect (this.resolutionVector [state.finalPointer]));
-      //console.log ('\n\n\nvarvec ******* ', varvec);
       return [this.resolutionVector[state.finalPointer], varvec];
     }
   }, {
     key: 'reduce',
     value: function reduce(cell, env) {
-      var res = void 0,
-          varvec = void 0;
-      //console.log ('\n\n\n#############################\n\n\n', varvec);
-      var r = this.find(cell);
-      //console.log(r);
-      res = r[0];
-      if (res === null) return null;
-
-      varvec = r[1];
+      var r = this.find(cell, env);
+      if (r[0] === null) return null;
+      return Rho.reduce_internal(r[0].body, r[0].params, r[1], env);
+    }
+  }], [{
+    key: 'reduce_internal',
+    value: function reduce_internal(body, params, varvec, env) {
       var args = [];
       var argStrs = [];
       var _iteratorNormalCompletion = true;
@@ -689,7 +679,7 @@ var Rho = function () {
       var _iteratorError2 = undefined;
 
       try {
-        for (var _iterator2 = res.params[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+        for (var _iterator2 = params[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
           var s = _step2.value;
 
           if (s.startsWith('@')) {
@@ -699,10 +689,6 @@ var Rho = function () {
             argsList.push(argStrs.shift());
           }
         }
-
-        //console.log ('\n\n\ndebug: \n----------\n\n\n', inspect(res), '\n\n\n', inspect(cell), '\n\n\n', varvec, '\n\n\n', inspect(env));
-        //let scope = new Env (Cell.list(res.params), Cell.list(args), env);
-        //console.log('debug: \n' +inspect(scope));
       } catch (err) {
         _didIteratorError2 = true;
         _iteratorError2 = err;
@@ -718,7 +704,23 @@ var Rho = function () {
         }
       }
 
-      return new Reduced(res.body, paramsList, argsList);
+      var scope = new Env(Cell.list(paramsList), Cell.list(argsList), null);
+      return Rho.rewrite(body, scope);
+    }
+  }, {
+    key: 'rewriteCell',
+    value: function rewriteCell(cell, scope) {
+      if (cell instanceof Cell) {
+        var c = new Cell(Rho.rewrite(cell.car, scope));
+        c.cdr = Rho.rewrite(cell.cdr, scope);
+        return c;
+      }
+      return cell;
+    }
+  }, {
+    key: 'rewrite',
+    value: function rewrite(body, scope) {
+      if (body instanceof Cell) return Rho.rewriteCell(body, scope);else if (body instanceof IronSymbol) return scope.get(body);else return body;
     }
   }]);
   return Rho;
@@ -4702,15 +4704,12 @@ var Reference = function () {
 
     this.keys = keys;
     this.cmd = cmd;
-
-    //console.log(this.cmd, this.obj, this.keys);
   }
 
   createClass(Reference, [{
     key: 'get',
     value: function get() {
       var obj = this.obj;
-      //console.log(this.keys);
       var _iteratorNormalCompletion = true;
       var _didIteratorError = false;
       var _iteratorError = undefined;
@@ -4721,7 +4720,6 @@ var Reference = function () {
 
           if ((typeof obj === 'undefined' ? 'undefined' : _typeof(obj)) === 'object') {
             if (obj.__itype__ === 'collection' || obj.__itype__ === 'sequence') obj = obj.get(key);else obj = obj[key];
-            //console.log('debug*** ',obj, key);
           } else return undefined;
         }
       } catch (err) {
@@ -4745,7 +4743,6 @@ var Reference = function () {
     key: 'set',
     value: function set(val) {
       var obj = this.obj;
-      //console.log(obj);
       var _iteratorNormalCompletion2 = true;
       var _didIteratorError2 = false;
       var _iteratorError2 = undefined;
@@ -4754,12 +4751,10 @@ var Reference = function () {
         for (var _iterator2 = this.keys.slice(0, -1)[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
           var key = _step2.value;
 
-          //if (obj instanceof Store) obj = obj.get(key);
           if ((typeof obj === 'undefined' ? 'undefined' : _typeof(obj)) === 'object') {
             if (obj.__itype__ === 'collection' || obj.__itype__ === 'sequence') obj = obj.get(key);else obj = obj[key];
           } else return undefined;
         }
-        //if (obj instanceof Store) {
       } catch (err) {
         _didIteratorError2 = true;
         _iteratorError2 = err;
@@ -4781,7 +4776,6 @@ var Reference = function () {
           return val;
         } else {
           obj[this.keys[this.keys.length - 1]] = val;
-          //console.log(this.obj);
           return val;
         }
       } else return undefined;
@@ -4815,7 +4809,6 @@ var Collection = function (_Store) {
     };
 
     _this2.get = function (key) {
-      //console.log('\n\n\n\n',key,'\n\n\n\n', this.obj[key], '\n\n\n\n');
       if (typeof key !== 'string') return undefined;
       if (_this2.has(key)) return _this2.obj[key];
       return undefined;
@@ -4897,8 +4890,6 @@ var Sequence = function (_Store2) {
  *
  */
 
-//import {inspect} from 'util';
-
 var Env = function () {
   function Env(param, arg, par) {
     var newcollection = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : false;
@@ -4942,8 +4933,6 @@ var Env = function () {
     value: function bind(key, val) {
       if (!this.syncLock) return false;
       while (key instanceof Cell) {
-        //console.log ('debug: ',inspect(key), inspect(val));
-        //ensure (val instanceof Cell, "can not bind a List to an Atom");
         if (val instanceof Cell) {
           this.bind(key.car, val.car);
           key = key.cdr;
@@ -4957,7 +4946,6 @@ var Env = function () {
         ensure(key instanceof IronSymbol, "" + Cell.stringify(key) + " is not an IronSymbol");
         var keystr = key.symbol;
         this.map.set(keystr, val);
-        //console.log(keystr, val);
       }
       return true;
     }
@@ -4982,11 +4970,6 @@ var Env = function () {
       var keystr = key.symbol;
       if (this.map.has(keystr)) ret = this.map.get(keystr);else if (this.par !== null) ret = this.par.get(key);else ret = key;
 
-      //console.log(keystr, ret);
-
-      //if (ret instanceof Function) return ret;
-      //else if (ret instanceof Object && ret.__itype__ === 'stream') return ret;
-      //else if (ret instanceof Object) return ret;//return Object.assign({}, ret);
       return ret;
     }
   }, {
@@ -5123,6 +5106,75 @@ var Stream = function Stream(core, env) {
   });
 };
 
+var _dot$1 = new IronSymbol('_dot');
+
+function def(name, val, env, cb) {
+	if (!env.syncLock) cb('can _def/_let only inside a _begin/_sync block');
+	if (name instanceof IronSymbol && name.startsWith('@')) name = env.get(name);
+
+	if (name instanceof Cell && _dot$1.equal(name.car)) {
+		name.ctx = 'set';
+		evalAsync(name, env, function (err, _env, _, ref) {
+			evalAsync(val, env, function (err, _env, _, value) {
+				cb(err, env, null, ref(value));
+			});
+		});
+	} else if (name instanceof Cell) {
+		cellToArr(name, [], env, function (err, _env, _, names) {
+			evalAsync(val, env, function (err, _env, _, value) {
+				if (value instanceof Cell) {
+					cellToArr(value, [], env, function (err, _env, _, args) {
+
+						var evalArg = function evalArg(arg, _cb) {
+							evalAsync(arg, env, function (err, env, _, argval) {
+								_cb(err, argval);
+							});
+						};
+
+						mapLimit(args, 32, evalArg, function (err, argvals) {
+							var lst = Cell.list(argvals);
+							var i = 0;
+							var _iteratorNormalCompletion = true;
+							var _didIteratorError = false;
+							var _iteratorError = undefined;
+
+							try {
+								for (var _iterator = names[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+									var n = _step.value;
+
+									def(n, argvals[i++], env, function (err, _env, _, val) {
+										if (err) cb(err);
+									});
+								}
+							} catch (err) {
+								_didIteratorError = true;
+								_iteratorError = err;
+							} finally {
+								try {
+									if (!_iteratorNormalCompletion && _iterator.return) {
+										_iterator.return();
+									}
+								} finally {
+									if (_didIteratorError) {
+										throw _iteratorError;
+									}
+								}
+							}
+
+							cb(null, env, null, lst);
+						});
+					});
+				} else cb('Expected a List as the RValue');
+			});
+		});
+	} else if (name instanceof IronSymbol) {
+		evalAsync(val, env, function (err, _env, _, value) {
+			var sts = env.bind(name, value);
+			if (!sts) cb('can _def/_let only inside a _begin/_sync block');else cb(null, env, null, value);
+		});
+	} else cb("" + Cell.stringify(name) + "is not a valid LValue, Symbols, List of Symbols and References are the only valid LValues");
+}
+
 /**
  * Copyright (c) 2016 Ganesh Prasad Sahoo (GnsP)
  *
@@ -5145,8 +5197,6 @@ var Stream = function Stream(core, env) {
  * SOFTWARE.
  *
  */
-
-//import {inspect} from 'util';
 
 var _cons = new IronSymbol('_cons');
 var _car = new IronSymbol('_car');
@@ -5196,7 +5246,6 @@ var defaultCallback = function defaultCallback(err, env) {
 		if (err instanceof IError) err.log();
 		throw err;
 	}
-	//console.log (env);
 };
 
 function cellToArr(cell, arr, env, cb) {
@@ -5218,9 +5267,7 @@ function evalAsync(x, env) {
 	var cb = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : defaultCallback;
 
 	if (x instanceof IronSymbol) {
-		if (_self.equal(x)) cb(null, env, null, env);else if (_this.equal(x)) cb(null, env, null, env.collection);else if (_null_.equal(x)) cb(null, env, null, null);
-		//else cb( null, env, null, env.get(x));
-		else env.getAsync(x, cb);
+		if (_self.equal(x)) cb(null, env, null, env);else if (_this.equal(x)) cb(null, env, null, env.collection);else if (_null_.equal(x)) cb(null, env, null, null);else env.getAsync(x, cb);
 	} else if (!(x instanceof Cell)) cb(null, env, null, x);else cellToArr(x, [], env, function (err, env, _, xarray) {
 
 		if (_quote.equal(xarray[0])) cb(null, env, null, xarray[1]);else if (_eval$1.equal(xarray[0])) {
@@ -5247,12 +5294,6 @@ function evalAsync(x, env) {
 			});
 		} else if (_seq.equal(xarray[0])) {
 			var args = xarray.slice(1);
-			//while (x.cdr instanceof Cell) {
-			//x = x.cdr;
-			//args.push (xarray[0]);
-			//}
-
-			//cellToArr (x.cdr, [], env, (err, env, _, args) => {
 			var evalArg = function evalArg(arg, _cb) {
 				evalAsync(arg, env, function (err, env, _, argval) {
 					_cb(err, argval);
@@ -5260,16 +5301,13 @@ function evalAsync(x, env) {
 			};
 
 			mapLimit(args, 32, evalArg, function (err, argvals) {
-				//console.log(argvals);
 				cb(err, env, null, new Sequence(argvals));
 			});
-			//});
 		} else if (_map.equal(xarray[0]) || _filter$1.equal(xarray[0])) {
 			(function () {
 				var _seqn = xarray[1];
 				var _func = xarray[2];
 				evalAsync(_seqn, env, function (err, _env, _, seq$$1) {
-					//console.log(Array(seq));
 					if (seq$$1 instanceof Array || seq$$1.__itype__ === 'sequence') {
 						(function () {
 							var _arr = seq$$1;
@@ -5303,10 +5341,8 @@ function evalAsync(x, env) {
 							}
 
 							evalAsync(_func, env, function (err, _env, _, func) {
-								//console.log('here  '+Cell.stringify(_func));
 								if (func instanceof Function) {
 									var cbfn = function cbfn(arg, _cb) {
-										//console.log(arg);
 										func(null, env, function (err, _env, _, val) {
 											_cb(err, val);
 										}, arg.val, arg.index);
@@ -5353,14 +5389,6 @@ function evalAsync(x, env) {
 				var cmd = x.ctx;
 				if (x.ctx === null) cmd = 'get';
 
-				//console.log('### Ref: '+x.ctx+' '+Cell.stringify(x));
-
-				//while (x.cdr instanceof Cell) {
-				//x = x.cdr;
-				//args.push (xarray[0]);
-				//}
-
-				//cellToArr (x.cdr, [], env, (err, env, _, args) => {
 				var evalArg = function evalArg(arg, _cb) {
 					evalAsync(arg, env, function (err, env, _, argval) {
 						_cb(err, argval);
@@ -5368,19 +5396,15 @@ function evalAsync(x, env) {
 				};
 
 				mapLimit(args, 32, evalArg, function (err, argvals) {
-					//console.log(argvals);
 					var ref = new (Function.prototype.bind.apply(Reference, [null].concat([cmd], toConsumableArray(argvals))))();
-					//console.log('### Return of Ref: '+ref.value);
 					cb(err, env, null, ref.value);
 				});
-				//});	
 			})();
 		} else if (_if.equal(xarray[0])) {
 			(function () {
 				var test = xarray[1];
 				var then = xarray[2];
 				var othr = xarray[3];
-				//console.log ('\n\n\n\ndebug: \n*********', inspect(test), inspect(then), inspect(othr), '\n\n');
 				evalAsync(test, env, function (err, env, _, res) {
 					var expr = res ? then : othr;
 					evalAsync(expr, env, cb);
@@ -5395,48 +5419,7 @@ function evalAsync(x, env) {
 				});
 			})();
 		} else if (_def.equal(xarray[0]) || _let.equal(xarray[0])) {
-			(function () {
-				var name = xarray[1];
-				var val = xarray[2];
-
-				if (!env.syncLock) cb('can _def/_let only inside a _begin/_sync block');
-
-				if (name instanceof IronSymbol && name.startsWith('@')) name = env.get(name);
-
-				if (name instanceof Cell && _dot.equal(name.car)) {
-					name.ctx = 'set';
-					//console.log(Cell.stringify(name));
-					evalAsync(name, env, function (err, _env, _, ref) {
-						evalAsync(val, env, function (err, _env, _, value) {
-							//console.log(Cell.stringify(ref));
-							cb(err, env, null, ref(value));
-						});
-					});
-				} else if (name instanceof Cell) {
-					evalAsync(val, env, function (err, _env, _, value) {
-						if (value instanceof Cell) {
-							cellToArr(value, [], env, function (err, _env, _, args) {
-								var evalArg = function evalArg(arg, _cb) {
-									evalAsync(arg, env, function (err, env, _, argval) {
-										_cb(err, argval);
-									});
-								};
-
-								mapLimit(args, 32, evalArg, function (err, argvals) {
-									var lst = Cell.list(argvals);
-									var sts = env.bind(name, lst);
-									if (!sts) cb('can _def/_let only inside a _begin/_sync block');else cb(null, env, null, lst);
-								});
-							});
-						} else cb('Expected a List as the RValue');
-					});
-				} else if (name instanceof IronSymbol) {
-					evalAsync(val, env, function (err, _env, _, value) {
-						var sts = env.bind(name, value);
-						if (!sts) cb('can _def/_let only inside a _begin/_sync block');else cb(null, env, null, value);
-					});
-				} else cb("" + Cell.stringify(name) + "is not a valid LValue, Symbols, List of Symbols and References are the only valid LValues");
-			})();
+			def(xarray[1], xarray[2], env, cb);
 		} else if (_assign_unsafe.equal(xarray[0]) || _set_unsafe.equal(xarray[0])) {
 			(function () {
 				var name = xarray[1];
@@ -5473,12 +5456,8 @@ function evalAsync(x, env) {
 				var pattern = xarray[1];
 				var resolution = xarray[2];
 				evalAsync(pattern, env, function (err, _env, _, val) {
-					//console.log('debug-pattern: ', inspect(val));
-					//evalAsync (resolution, env, (err, _env, _, resolution) => {
 					var sts = env.rho.accept(val, resolution);
-					//console.log ('\n\n\n\ndebug: ', inspect(env), '\n\n');
 					if (sts instanceof IError) cb(sts);else cb(null, env, null, env);
-					//});
 				});
 			})();
 		} else if (_begin$1.equal(xarray[0]) || _sync$1.equal(xarray[0]) || _coll.equal(xarray[0])) {
@@ -5495,41 +5474,26 @@ function evalAsync(x, env) {
 					unsyncFlag = true;
 					_env.sync();
 				}
-				//cellToArr (x.cdr, [], _env, (err, _env, _, args) => {
 				var args = xarray.slice(1);
 				var i = 0;
-				whilst(
-				//() => { return x.cdr instanceof Cell; },
-				function () {
+				whilst(function () {
 					return i < args.length;
 				}, function (callback) {
-					//x = x.cdr;
 					evalAsync(args[i], _env, function (err, __env, _, argval) {
 						i += 1;
 						nextTick(callback, err, argval);
 					});
 				}, function (err, res) {
-					//if(isColl)console.log(_env.collection.obj);
 					if (unsyncFlag) _env.unsync();
 					if (isColl) cb(err, env, null, _env.collection.obj);else cb(err, _env, null, res);
 				});
-				//});
 			})();
 		} else if (_stream.equal(xarray[0])) {
 			(function () {
 				var func = xarray[1];
 				var arglist = xarray.slice(2);
 
-				//let arglist = [];
-				//while (args instanceof Cell) {
-				//arglist.push (args.car);
-				//args = args.cdr;
-				//}
-
-				//cellToArr (args, [], env, (err, env, _, arglist) => {
-
 				evalAsync(func, env, function (err, _env, _, func) {
-
 					var corefn = function corefn(updatefn) {
 						var argvals = Array(arglist.length);
 						var argflags = [];
@@ -5540,7 +5504,6 @@ function evalAsync(x, env) {
 							evalAsync(arglist[_i], env, function (err, _env, _, argval) {
 								argvals[_i] = argval;
 								if (argval !== null && argval !== undefined) {
-									//debugger;
 									if (!argflags[_i]) {
 										argflags[_i] = true;
 										argcount--;
@@ -5561,10 +5524,8 @@ function evalAsync(x, env) {
 							_loop(_i);
 						}
 					};
-
 					cb(err, env, null, new Stream(corefn, env));
 				});
-				//});
 			})();
 		} else if (_on.equal(xarray[0])) {
 			(function () {
@@ -5610,7 +5571,6 @@ function evalAsync(x, env) {
 			})();
 		} else if (_import$1.equal(xarray[0])) {
 			(function () {
-				//console.log('\n\n\n',env,'\n\n\n');
 				var importfn = env.get(xarray[0]);
 				evalAsync(xarray[1], env, function (err, _env, _, sourcename) {
 					var names = null;
@@ -5622,83 +5582,21 @@ function evalAsync(x, env) {
 			})();
 		} else {
 			evalAsync(xarray[0], env, function (err, env, _, func) {
-				//console.log (''+xarray[0] +'\n\n'+inspect(func));
-				//console.log("### debug ### "+Cell.stringify(func));
-
 				if (func instanceof Object && func.__itype__ === "env") {
-					//console.log ('__debug__\n\n ' + inspect(func));
 					var acell = x.cdr;
 					var reduced = func.rho.reduce(acell, env);
-					//console.log ('\n\n\n\ndebug: ', inspect(env), '\n\n');
 					if (reduced === null) //cb( null, env, null, null);
-						evalAsync(Cell.list(xarray.slice(1)), env, cb);else {
-						(function () {
-							//console.log (reduced);
-
-							var args = reduced.args;
-							var params = reduced.params;
-							var body = reduced.body;
-
-							var scope = new Env(Cell.list(params), Cell.list(args), env);
-							scope.syncLock = env.syncLock;
-							var cache = Object.create(null);
-							scope.getAsync = function (x, _cb) {
-								if (cache[x.symbol]) _cb(null, scope, null, cache[x.symbol]);else if (scope.map.has(x.symbol)) {
-									evalAsync(scope.map.get(x.symbol), scope, function (err, _env, _, val) {
-										cache[x.symbol] = val;
-										_cb(null, scope, null, val);
-									});
-								} else _cb(null, scope, null, scope.get(x));
-							};
-							scope.bind = function (key, val) {
-								return env.bind(key, val);
-							};
-
-							evalAsync(body, scope, cb);
-						})();
-					}
-					/*  
-     	mapLimit (args, 32, (arg, _cb) => {
-     		//console.log ('debug : ', arg);
-     		evalAsync( arg, _env, (err, __env, _, argval) => {
-     			_cb( err, argval);
-     		});
-     	},
-     		(err, argvals) => {
-     		let scope = new Env (Cell.list(params), Cell.list(argvals), _env);
-     		//console.log (Cell.stringify(body));
-     		//console.log (params, argvals);
-     		evalAsync( body, scope, (err, _, __, val) => {
-     			//console.log('Debug ________: '+val);
-     			cb( err, _env, null, val);
-     		});
-     	});
-     		//evalAsync( reduced.body, reduced.env, (err, _, __, val) => {
-     		//cb( err, env, null, val);
-     	//});
-     }
-     */
+						evalAsync(Cell.list(xarray.slice(1)), env, cb);else evalAsync(reduced, env, cb);
 				} else if (func instanceof Object && func.__itype__ === 'stream') {
 					func.addcb(cb);
 					cb(err, env, null, func.value);
 				} else if (func instanceof Object && func.__itype__ === 'specialform') {
 					func = func.func;
 					var _args = xarray.slice(1);
-					//while (x.cdr instanceof Cell) {
-					//x = x.cdr;
-					//args.push (xarray[0]);
-					//}
-					//cellToArr (x.cdr, [], env, (err, env, _, args) => {
 					var _env2 = new Env(null, null, env);
 					func.apply(undefined, [null, _env2, cb].concat(toConsumableArray(_args)));
-					//});
 				} else if (func instanceof Function) {
 					var _args2 = xarray.slice(1);
-					//while (x.cdr instanceof Cell) {
-					//x = x.cdr;
-					//args.push (xarray[0]);
-					//}
-					//cellToArr (x.cdr, [], env, (err, env, _, args) => {
 					var _evalArg = function _evalArg(arg, _cb) {
 						evalAsync(arg, env, function (err, env, _, argval) {
 							_cb(err, argval);
@@ -5706,13 +5604,10 @@ function evalAsync(x, env) {
 					};
 
 					mapLimit(_args2, 32, _evalArg, function (err, argvals) {
-						//console.log ('\n\n\n\ndebug: ', argvals, '\n', env, '\n\n');
 						var _env = new Env(null, null, env);
 						func.apply(undefined, [err, _env, cb].concat(toConsumableArray(argvals)));
 					});
-					//});
 				} else {
-					//cb (new IError ('can not evaluate list '+Cell.stringify(x)), env, null, x);
 					cb(null, env, null, Cell.list(xarray));
 				}
 			});
@@ -5748,8 +5643,6 @@ function fn(params, body, env) {
   if (env.syncLock) closureEnv.sync();
   return function (err, _env, cb) {
     if (err) cb(err);
-    //console.log (Cell.stringify(params), Cell.stringify(args),'\n\n');
-    //console.log ('\n\n\n\ndebug: \n----------------------------', new Env(params, Cell.list(args),env), '\n\n');
 
     for (var _len = arguments.length, args = Array(_len > 3 ? _len - 3 : 0), _key = 3; _key < _len; _key++) {
       args[_key - 3] = arguments[_key];
@@ -6246,7 +6139,6 @@ function echo() {
 
       if (arg instanceof Cell) str += Cell.stringify(arg) + " ";else if (arg instanceof Function) str += '[Function] ';else if (arg instanceof Object && arg.__itype__ === 'collection') {
         str += JSON.stringify(arg.obj) + " ";
-        //console.log(arg);
       } else if (arg instanceof Object && arg.__itype__ === 'sequence') str += JSON.stringify(arg.arr) + " ";else if (arg instanceof Object && arg.type === 'ironsymbol') str += arg.symbol + " ";else if ((typeof arg === 'undefined' ? 'undefined' : _typeof(arg)) === 'object') str += JSON.stringify(arg) + " ";else str += arg + " ";
     }
   } catch (err) {
@@ -6329,20 +6221,14 @@ function importfn(env) {
     var sourceDir = null;
     var _all = new IronSymbol('_all');
 
-    //console.log(_env);
-
     if (!sourcename.endsWith('.is')) sourceDir = join$$1(__include_dir__, dirname$$1(sourcename));else sourceDir = join$$1(basedir, dirname$$1(sourcename));
     var filename = join$$1(sourceDir, basename$$1(sourcename));
-    //console.log('debug: '+filename);
 
-    //console.log(namesList);
     if (imported.has(filename)) {
       var importEnv = imported.get(filename);
       if (namesList) {
-        //console.log('\t\t\t\tDebug (1): \t\t',namesList instanceof Cell);
         if (namesList instanceof Cell) {
           while (namesList instanceof Cell) {
-            //console.log('\t\t\t\tDebug: \t\t',importEnv.get(namesList.car));
             _env.syncAndBind(namesList.car, importEnv.get(namesList.car));
             namesList = namesList.cdr;
           }
@@ -6358,11 +6244,9 @@ function importfn(env) {
           imported.set(filename, importEnv);
           _env.defc('__base_dir__', basedir);
           if (namesList) {
-            //console.log('\t\t\t\tDebug (2): \t\t',namesList instanceof Cell);
             if (namesList instanceof Cell) {
               while (namesList instanceof Cell) {
 
-                //console.log('\t\t\t\tDebug: \t\t',importEnv.get(namesList.car));
                 _env.syncAndBind(namesList.car, importEnv.get(namesList.car));
                 namesList = namesList.cdr;
               }
@@ -6390,13 +6274,10 @@ function includefn(env) {
 
     var sourceDir = null;
 
-    //console.log('__debug__: '+dirname(sourcename));
     if (!sourcename.endsWith('.is')) sourceDir = join$$1(__include_dir__, dirname$$1(sourcename));else sourceDir = join$$1(basedir, dirname$$1(sourcename));
-    //console.log('__debug__: ', sourceDir);
     _env.defc('__base_dir__', sourceDir);
     var filename = join$$1(sourceDir, basename$$1(sourcename));
 
-    //console.log('debug: '+filename);
     if (included.has(filename)) {
       src = included.get(filename);
       var p = new Parser({ name: sourcename, buffer: src });
@@ -6407,7 +6288,6 @@ function includefn(env) {
     } else {
       nextTick(readsource, err, _env, function (err, __env, _cb, src) {
         included.set(filename, src);
-        //console.log(filename, '\n\n', src);
         var p = new Parser({ name: sourcename, buffer: src });
         nextTick(evalAsync, p.parse(), _env, function (err, _env, _cb, val) {
           _env.defc('__base_dir__', basedir);

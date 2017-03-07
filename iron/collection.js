@@ -33,8 +33,6 @@ export class Reference {
     this.obj = obj;
     this.keys = keys;
     this.cmd = cmd;
-
-    //console.log(this.cmd, this.obj, this.keys);
   }
 
   get value () {
@@ -45,12 +43,10 @@ export class Reference {
 
   get () {
     let obj = this.obj;
-    //console.log(this.keys);
     for (let key of this.keys) {
       if (typeof obj === 'object') {
         if (obj.__itype__ === 'collection' || obj.__itype__ === 'sequence')  obj = obj.get (key);
         else obj = obj[key];
-        //console.log('debug*** ',obj, key);
       }
       else return undefined;
     }
@@ -59,16 +55,13 @@ export class Reference {
 
   set (val) {
     let obj = this.obj;
-    //console.log(obj);
     for (let key of this.keys.slice(0,-1)) {
-      //if (obj instanceof Store) obj = obj.get(key);
       if (typeof obj === 'object') {
         if (obj.__itype__ === 'collection' || obj.__itype__ === 'sequence') obj = obj.get(key);
         else obj = obj[key];
       }
       else return undefined;
     }
-    //if (obj instanceof Store) {
     if (typeof obj === 'object') {
       if (obj.__itype__ === 'collection' || obj.__itype__ === 'sequence')  {
         obj.set(this.keys[this.keys.length-1], val);
@@ -76,7 +69,6 @@ export class Reference {
       }
       else {
         obj[this.keys[this.keys.length-1]] = val;
-        //console.log(this.obj);
         return val;
       }
     }
@@ -95,7 +87,6 @@ export class Collection extends Store{
     this.has = (key) => { return this.obj[key] !== undefined; }
   
     this.get = (key) => {
-      //console.log('\n\n\n\n',key,'\n\n\n\n', this.obj[key], '\n\n\n\n');
       if (typeof key !== 'string') return undefined;
       if (this.has(key)) return this.obj[key];
       return undefined;

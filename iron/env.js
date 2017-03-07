@@ -30,7 +30,6 @@ import Rho from './rho.js';
 import {Collection} from './collection.js';
 
 import IError from './errors.js';
-//import {inspect} from 'util';
 
 export default class Env {
   constructor (param, arg, par, newcollection=false) {
@@ -78,8 +77,6 @@ export default class Env {
   bind (key, val) {
     if (!this.syncLock) return false;
     while (key instanceof Cell) {
-      //console.log ('debug: ',inspect(key), inspect(val));
-      //ensure (val instanceof Cell, "can not bind a List to an Atom");
       if (val instanceof Cell) {
         this.bind (key.car, val.car);
         key = key.cdr;
@@ -94,7 +91,6 @@ export default class Env {
       ensure (key instanceof IronSymbol, ""+Cell.stringify(key)+" is not an IronSymbol");
       let keystr = key.symbol;
       this.map.set (keystr, val);
-      //console.log(keystr, val);
     }
     return true;
   }
@@ -118,12 +114,7 @@ export default class Env {
     else if (this.par !== null) ret = this.par.get(key);
     else ret = key;
     
-    //console.log(keystr, ret);
-
-    //if (ret instanceof Function) return ret;
-    //else if (ret instanceof Object && ret.__itype__ === 'stream') return ret;
-    //else if (ret instanceof Object) return ret;//return Object.assign({}, ret);
-    return ret;
+		return ret;
   }
 
 	get (key) {

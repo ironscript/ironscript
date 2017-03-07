@@ -32,8 +32,6 @@ export function fn (params, body, env) {
   if (env.syncLock) closureEnv.sync();
   return function ( err, _env, cb, ...args ) {
     if (err) cb (err);
-    //console.log (Cell.stringify(params), Cell.stringify(args),'\n\n');
-    //console.log ('\n\n\n\ndebug: \n----------------------------', new Env(params, Cell.list(args),env), '\n\n');
     evalAsync( body, new Env(params, Cell.list(args), closureEnv), cb);
   };
 }

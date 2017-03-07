@@ -167,7 +167,9 @@ just like any other Javascript Object created with `Object.create(null)`.
 A sequence is a contained/wrapped Javascript Array. Though Ironscript is built around `_cons` based lists, sequences
 provide better performance on data for obvious reasons.
 
-
+#### LValue and RValue
+Anything that can be bound to a value using a `_def`/`_let` or `_assign!`/`_set!` is a LValue.  
+The value being bound to the LValue is the RValue. See the `_def` / `_let` special form section for more info.
 
 
 ### The Grammar
@@ -340,8 +342,45 @@ Value of this form is value of *then* if value of *cond* is a Truthy value in Ja
 
 ### `_def` / `_let`
 
+**`_def` and `_let` are special symbols bound to this special form. Hence, `(_def ...)` and `(_let ...)` are
+semantically identical.**
+
 **form** : `(_def x y)` or `(_let x y)`
 
+Where *x* is a (1) **Symbol** or a (2) **list of Symbols** or a (3) **reference to a field in a collection** 
+or a (4) **constant symbol** whose value is either (1) or (2) or (3).
+If *x* is not (1) or (2) or (3) or (4) then it's not a valid LValue.
+
+
+**Note that a *list of references* is not a valid LValue.**
+*y* is an S-Expression. Value of *y* is expected to be a list of values if *x* is a list of symbols.
+
+The form bind the symbols or references in the LValue to the values in the RValue.
+
+**examples**
+
+		(_let a 1)              ; value 5 is bound to the symbol a
+		(_echo a)               ; prints 1
+		
+		(_let @b 2)             ; @b is a constant symbol with a value 2
+		(_echo @b)              ; prints 2
+
+		(_let @b 3)             ; Fails, because @b is a constant already defined
+		                        ; and the value of @b is not a symbol or list of symbols
+
+		(_let @c b)             ; @c is a constant with value b. b is a symbol
+                            ; notice that @b and b are different
+
+		(_echo @c)              ; prints b
+		(_echo b)               ; prints b, because b is not bound to any value yet.
+		
+		
+		(_let @c 4)             ; Because @c is a constant symbol bound to the symbol b
+                            ;	here b is bound to 4 and @c is unchanged and still 
+                            ; bound to the symbol b
+		
+		(_echo @c)              ; prints b
+		(_echo b)               ; prints 4
 
 
 

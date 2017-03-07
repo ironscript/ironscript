@@ -23,6 +23,12 @@ _begin
 	(_echo @a x y )
 
 
+	[(@a @b) = ((5 6) 7)]
+	(_echo @a @b x y )
+
+
+
+
   (_include "stdlib")
 
   
@@ -52,12 +58,12 @@ _begin
 	
 
   (_rho (@a + @b) (+ @a @b) )
-  (_rho '(@a + @b + @c) (+ [@a + @b] @c))
+  (_rho (@a + @b + @c) (+ [@a + @b] @c))
   
   (_self 1 + 2 + 3)
   (_echo (! 5))
 
-  (_rho '(@n !) (! @n) )
+  (_rho (@n !) (! @n) )
   (_echo [5 !])
 
 
@@ -92,7 +98,6 @@ _begin
 	(_echo (variadic 1 2 3 4 5 6 7 8 9) )
 	(_echo (variadic 1 ) )
 
-	;(_echo (_ (_cons + (variadic 1 2 3) ) ) )
 
 	(_def sum (_fn (arg1 : args) (_if args (+ arg1 (sum :args) )  arg1 ) ) ) 
 	(_def sumjs @{
@@ -164,9 +169,11 @@ _begin
 
 
 
-
+	(_echo here)
 	[myNum = 10]
+	(_echo here)
 	(_echo myNum)
+	(_echo here)
 
   (_def myColl {
     ;(_let .name "Ganesh")
