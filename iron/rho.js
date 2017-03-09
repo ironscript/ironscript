@@ -28,6 +28,7 @@ import IError from './errors.js';
 import Env from './env.js';
 
 const _ANY = new IronSymbol('__internal (any)');
+const _REST = new IronSymbol('__internal (rest)');
 
 class RhoState {
   constructor () {
@@ -48,11 +49,23 @@ class RhoState {
     return this.table.get(s.symbol);
   }
 
+	captureRest (sym, varvec) {
+		varvec.push(sym);
+    if (!(this.table.has(_REST.symbol))) this.table.set(_REST.symbol, new RhoState());
+    return this.table.get(_REST.symbol);
+	}
+
+		
+
   find (sym, varvec) {
     if (this.table.has(sym.symbol)) return this.table.get(sym.symbol);
     else if (this.table.has(_ANY.symbol)) {
       varvec.push(sym);
       return this.table.get(_ANY.symbol);
+    }
+    else if (this.table.has(_REST.symbol)) {
+      varvec.push(_REST);
+      return this.table.get(_REST.symbol);
     }
     else return null;
   }
@@ -97,8 +110,9 @@ export default class Rho {
       pcell = pcell.cdr;
     }
 
-		if (pcell !== null) {//TODO
-			//state = state.accept
+		if (pcell !== null) {
+			if (pcell instanceof IronSymbol && pcell.startsWith('@')) 
+				state = state.captureRest (pcell, varvec);
 		}
    
 
@@ -120,6 +134,12 @@ export default class Rho {
 			}
     	state = state.find (sym, varvec); 
     	if (state === null) break;
+
+			let cpt = varvec [varvec.length - 1];
+			if (cpt instanceof IronSymbol && _REST.equal(cpt) ) {
+				varvec [varvec.length - 1] = acell;
+				break;
+			}
     	acell = acell.cdr;
     }
     if (state === null || state.finalPointer === null) {

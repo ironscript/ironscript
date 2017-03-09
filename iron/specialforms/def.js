@@ -22,31 +22,34 @@ export default function def (name, val, env, cb) {
 	}
 
 	else if (name instanceof Cell) {
-		cellToArr (name, [], env, (err, _env, _, names) => {
-			evalAsync (val, env, (err, _env, _, value) => {
-				if (value instanceof Cell) {
-					cellToArr (value, [], env, (err, _env, _, args) => {
-
-						let evalArg = (arg, _cb) => {
-							evalAsync( arg, env, (err, env, _, argval) => {
-								_cb( err, argval);
-							});
-						};
-				
-						mapLimit (args, 32, evalArg, (err, argvals) => {
-							let lst = Cell.list(argvals);
-							let i = 0;
-							for (let n of names) {
-								def (n, argvals[i++], env, (err, _env, _, val) => {
-									if (err) cb (err);	
-								});
-							}
-							cb( null, env, null, lst);
+		evalAsync (val, env, (err, _env, _, value) => {
+			if (value instanceof Cell) {
+				cellToArr (value, [], env, (err, _env, _, args) => {
+					let evalArg = (arg, _cb) => {
+						evalAsync( arg, env, (err, env, _, argval) => {
+							_cb( err, argval);
 						});
+					};
+			
+					mapLimit (args, 32, evalArg, (err, argvals) => {
+						let names = name;
+						let arglist = Cell.list(argvals);
+						while (names instanceof Cell) {
+							def (names.car, arglist.car, env, (err) => {
+								if (err) cb (err);
+							});
+							names = names.cdr;
+							arglist = arglist.cdr;
+						}
+						if (names !== null) def (names, arglist, env, (err) => {
+							if (err) cb (err);
+						});
+						
+						cb (null, env, null, value);
 					});
-				}
-				else cb ('Expected a List as the RValue');
-			});
+				});
+			}
+			else cb ('LValue : '+Cell.stringify(name)+' RValue : '+ Cell.stringify(value)+' <Expected a List as the RValue>');
 		});
 	}
 	else if (name instanceof IronSymbol) {

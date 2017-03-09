@@ -32,7 +32,14 @@ import {nextTick, mapLimit, whilst, filterLimit} from 'async-es';
 
 
 import {Reference, Collection, Sequence} from './collection.js';
+
 import def from './specialforms/def.js';
+
+import egg from './egg.js';
+
+// changes from version to version, contextual usage only. 
+// (_import _egg) does some funny shit
+const _egg = new IronSymbol('_egg');
 
 
 
@@ -60,7 +67,10 @@ const _try = new IronSymbol ('_try');
 
 const _self = new IronSymbol ('_self'); 
 const _this = new IronSymbol ('_this');
-const _null_ = new IronSymbol('NIL'); 
+const _null_ = new IronSymbol('NIL');
+const _true_ = new IronSymbol('_true');
+const _false_ = new IronSymbol('_false');
+
 
 const _coll = new IronSymbol ('_coll');
 const _seq = new IronSymbol('_seq'); 
@@ -92,7 +102,7 @@ export function cellToArr (cell, arr, env, cb) {
 		cell = cell.cdr;
 	}
 	if (cell !== null) {
-		evalAsync (cell, env, (err, _env, _, val) => {
+		nextTick (evalAsync, cell, env, (err, _env, _, val) => {
 			if (val instanceof Cell) cellToArr (val, arr, env, cb);
 			else {
 				arr.push (val);
@@ -111,12 +121,14 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
     if (_self.equal(x)) cb (null, env, null, env);
     else if (_this.equal(x)) cb( null, env, null, env.collection);
     else if (_null_.equal(x)) cb( null, env, null, null);
+    else if (_true_.equal(x)) cb( null, env, null, true);
+    else if (_false_.equal(x)) cb( null, env, null, false);
 		else env.getAsync(x, cb);
   }
 
   else if (!(x instanceof Cell)) cb( null, env, null, x); 
 	
-	else cellToArr (x, [], env, (err, env, _, xarray) => {
+	else nextTick (cellToArr, x, [], env, (err, env, _, xarray) => {
 		
 		if (_quote.equal(xarray[0])) cb( null, env, null, xarray[1]);
 		else if (_eval.equal(xarray[0])) {
@@ -126,12 +138,12 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 			});
 		}
 		else if (_cons.equal(xarray[0])) {
-			let car = xarray[1];
-			let cdr = xarray[2];
-			evalAsync( car, env, (err, env, _, car) => {
-				evalAsync( cdr, env, (err, env, _, cdr) => {
+			let _car = xarray[1];
+			let _cdr = xarray[2];
+			evalAsync( _car, env, (err, env, _, car) => {
+				evalAsync( _cdr, env, (err, env, _, cdr) => {
 					let list = Cell.cons(car, cdr);
-						cb( null, env, null, list);
+					cb( null, env, null, list);
 				});
 			});
 		}
@@ -302,7 +314,7 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 				(err, res) => {
 					if (unsyncFlag) _env.unsync();
 					if (isColl) cb( err, env, null, _env.collection.obj);
-					else cb( err, _env, null, res);
+					else nextTick (cb, err, _env, null, res);
 				}
 			);
 		}
@@ -392,7 +404,8 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 		}
 		else if (_import.equal(xarray[0])) {
 			let importfn = env.get(xarray[0]);
-			evalAsync( xarray[1], env, (err, _env, _, sourcename) => {
+			if (_egg.equal(xarray[1])) cb (null, env, null, egg());
+			else evalAsync( xarray[1], env, (err, _env, _, sourcename) => {
 				let names = null;
 				if (x.cdr.cdr) names = xarray[2];
 				evalAsync( names, env, (err, _env, _, namesList) => {
@@ -401,14 +414,14 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 			});
 		}
 		else {
-			evalAsync( xarray[0], env, (err, env, _, func) => {
+			nextTick (evalAsync, xarray[0], env, (err, env, _, func) => {
 				if (func instanceof Object && func.__itype__ === "env") {
 					let acell = x.cdr;
 					let reduced = func.rho.reduce (acell, env);
 					if (reduced === null)  //cb( null, env, null, null);
 						evalAsync ( Cell.list(xarray.slice(1)), env, cb);
 					else 
-						evalAsync (reduced, env, cb);
+						nextTick (evalAsync, reduced, env, cb);
 				}
 				
 				else if (func instanceof Object && func.__itype__ === 'stream') {
@@ -431,16 +444,17 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 						});
 					};
 					
-					mapLimit (args, 32, evalArg, (err, argvals) => {
+					mapLimit (args, 64, evalArg, (err, argvals) => {
 						let _env = new Env (null, null, env);
-						func (err, _env, cb, ...argvals);
+						nextTick (func, err, _env, cb, ...argvals);
 					});
 				}
 				else {
-					cb (null, env, null, Cell.list(xarray));
+					cb (null, env, null, x);
 				}
 			});
 		}
 	});
+	return;
 }
 

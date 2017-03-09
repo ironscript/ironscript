@@ -24,6 +24,7 @@
 
 import Env from './env.js';
 import {nextTick} from 'async-es';
+import IronSymbol from './symbol.js';
 
 class Store {};
 
@@ -32,7 +33,8 @@ export class Reference {
     this.__itype__ = 'reference';
     this.obj = obj;
     this.keys = keys;
-    this.cmd = cmd;
+		if (typeof obj === 'object' && obj.__itype__ === 'env') this.cmd = 'get';
+		else this.cmd = cmd;
   }
 
   get value () {
@@ -46,6 +48,7 @@ export class Reference {
     for (let key of this.keys) {
       if (typeof obj === 'object') {
         if (obj.__itype__ === 'collection' || obj.__itype__ === 'sequence')  obj = obj.get (key);
+        if (obj.__itype__ === 'env')  obj = obj.get (new IronSymbol(key));
         else obj = obj[key];
       }
       else return undefined;

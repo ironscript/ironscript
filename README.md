@@ -96,15 +96,25 @@ terms and define them here before going further into the document.
 
 ##### Symbol
 Anything that does not have a literal value. Reserved words are termed as **special symbol**s. 
-Identifiers or names are symbols too. The symbols that start with **`@`** are treated like constants,
-i.e. once bound to a value, their values will not change. And if a constant is bound to a value
-which is a symbol or list of symbols, then the const can be used as LValue in a `_def`/`_let` form.
-In this case the symbol which is bound as the value of the constant will be used as the actual LValue
-for the `_def`/`_let` form.  (The `_def`/`_let` form binds identifier symbols to values)
+Identifiers or names are symbols too. The symbols that start with **`@`** are **reference symbols**.
+Unless a symbol is bound to any other value, the value of the symbol is itself.
+
+
+##### Reference Symbol
+A reference symbols are more relatable to a C++ reference. They can be bound to values only once in a scope.
+Once bound to a value, their values will not change. And if a reference is bound to a value
+which is a symbol or list of symbols, then the reference can be used as LValue in a `_def`/`_let` form.
+In this case the symbol or list of symbols bound as the value of the reference will be used as the actual LValue
+for the `_def`/`_let` form.  (The `_def`/`_let` form binds symbols to values)
+
+Reference symbols are used to capture expressions in the `_rho` rewriter.
+
+_An USEFUL SIDE EFFECT: A reference symbol bound to a non-symbolic value is essentially a **constant** ._
+
 
 ##### Special Symbols
 
-There are 32 special symbols defined in Ironscript.
+There are 36 special symbols defined in Ironscript.
 
 **`_cons`**		|		**`_car`**		|		**`_cdr`**		|		**`_quote`**
 --------------|-----------------|-----------------|---------------
@@ -115,13 +125,18 @@ There are 32 special symbols defined in Ironscript.
 **`_filter`**	|		**`_push`**		|		**`_pull`**		|		**`_pop`**
 **`_stream`**	|		**`_do`**			|		**`_on`**			|		**`_include`**
 **`_import`**	|		**`_self`**		|		**`_this`**		|		**`NIL`**
+**`_true`**   |   **`_false`**  |   **`_all`**    |
 
 
-Among these **special symbol**s `_self`, `_this` and `NIL` have predefined values bound to them. 
+Among these **special symbol**s `_self`, `_this`, `_true`, `_false` and `NIL` have predefined values bound to them. 
+`_all` has contextual semantics in the `_import` special form. `(_import <filepath> _all)` imports all names defined 
+in the Ironscript module at filepath.
 The other **special symbol**s are bound with **special form**s.
 
 **`_self`** always refers to the current **scope**.  
 **`_this`** always refers to the current **collection**.  
+**`_true`** is the truth. (boolean true)
+**`_false`** is essentially the lie !!! (boolean false)
 **`NIL`** is the empty list () and is equivalent to null in Javascript.  
 
 Each **special symbol**, with the exception of `NIL`, starts with `_`, though `_` is not restricted 
@@ -143,7 +158,7 @@ There are 27 special forms defined in Ironscript.
 ##### Cell
 A cell is a **cons cell** or a **dotted pair**. [Read here](https://en.wikipedia.org/wiki/Cons) for more info.
 In Ironscript instead of **dotted pair**s are written as `(a : b)` instead of `(a . b)` and `:` is called the
-append operator.
+**construct operator**.
 
 A cell has 2 fields, the **car** field and the **cdr** field. For people acquainted with the concept of singly
 linked lists, a cell is equivalent to a *node in a singly linked list* where  the **car** field is equivalent to 
@@ -193,7 +208,7 @@ The value being bound to the LValue is the RValue. See the `_def` / `_let` speci
 	+ Brackets `[` and `]`
 	+ dot `.`
 	+ quote `'`
-	+ append `:`
+	+ construct `:`
 
 
 
@@ -261,6 +276,16 @@ As mentioned earlier, there are 27 **Special forms** defined in Ironscript. Here
 Where *x* and *y* are S-Expressions.  
 Value of this form is a **cell** whose **car** field is the value of *x* and **cdr** field is the value of *y*.
 
+
+**examples**
+    
+    (_cons 1 2 )      ; evaluates to ( 1 : 2 )
+		(_cons 1 (2) )    ; evaluates to ( 1 2 )
+		(_cons 1 NIL )    ; evaluates to (1)
+
+
+
+
 ----------------------------------
 
 
@@ -271,6 +296,14 @@ Value of this form is a **cell** whose **car** field is the value of *x* and **c
 Where *x* is an S-Expression.  
 If the value of *x* is a List, then value of this form is the **car** field of the first cell (root node) of the list.  
 Else the value of this form is `NIL`.
+
+
+**examples**
+
+    (_car ( 1 2 ) )     ; evaluates to 1
+		(_car ( (1 2) 3) )  ; evaluates to ( 1 2 )
+		(_car 1)            ; evaluaes to NIL
+
 
 
 ----------------------------------
@@ -285,6 +318,15 @@ If the value of *x* is a List, then value of this form is the **cdr** field of t
 Else the value of this form is `NIL`.
 
 
+**examples**
+    
+    (_cdr (1 2) )      ; evaluates to (2)
+		(_cdr (1 :2) )     ; evaluates to 2
+		(_cdr 1)           ; evaluates to NIL
+
+
+
+
 ----------------------------------
 
 
@@ -296,6 +338,14 @@ Else the value of this form is `NIL`.
 Where *x* is an S-Expression.  
 Value of this form is *x*.
 
+
+**examples**
+
+    (_quote x)      ; evaluates to x
+		(_quote (a b))  ; evaluates to (a b)
+		'a              ; evaluates to a
+		'(a b)          ; evaluates (a b)
+		'(+ 3 4)        ; evaluates to (+ 3 4)
 
 
 ----------------------------------
@@ -314,6 +364,23 @@ in Javascript. For example the Ironscript equivalent of `Obj[key1][key2][key3]` 
 and the equivalent of `Obj.key1.key2.key3` would be `Obj.key1.key2.key3`.
 
 
+**examples**
+   	
+    (_let lang {} )                   ; lang is a collection, 
+		                                  ; JS equivalent: let lang = {}
+    (_let lang.name 'Ironscript')     ; lang.name = 'ironscript'
+		(_let lang.version '1.2')         ; lang.version = '1.2'
+
+		(_echo lang.name)                 ; prints Ironscript
+		(_echo lang.version)              ; prints 1.2
+
+    ; we can also define lang like the following
+
+    (_let lang {
+		  (_let .name 'Ironscript')
+			(_let .version '1.2')
+		})
+
 
 ----------------------------------
 
@@ -323,7 +390,13 @@ and the equivalent of `Obj.key1.key2.key3` would be `Obj.key1.key2.key3`.
 **form** : `(_ x)`
 
 Where *x* is an S-Expression.  
-Value of this form is the *value of value of* x.
+Value of this form is the *value of value of* x.  
+It can be said that `_` is the semantic opposite of `_quote` or `'`.
+
+**examples**
+		
+		'(+ 3 4)           ; evaluates to (+ 3 4)
+    (_ '(+ 3 4))       ; evaluates yo 7
 
 
 ----------------------------------
@@ -335,6 +408,12 @@ Value of this form is the *value of value of* x.
 
 Where *cond*, *then* and *else* are S-Expressions.  
 Value of this form is value of *then* if value of *cond* is a Truthy value in Javascript, otherwise the value of *else*.
+
+**examples**
+
+    (_if (_true) (_echo a) (_echo b) )    ; prints a
+		(_if (_false) (_echo a) (_echo b) )   ; prints b
+
 
 
 ----------------------------------
@@ -352,7 +431,7 @@ or a (4) **constant symbol** whose value is either (1) or (2) or (3).
 If *x* is not (1) or (2) or (3) or (4) then it's not a valid LValue.
 
 
-**Note that a *list of references* is not a valid LValue.**
+**Note that a *list of symbols* is a linear list of symbols, it can not contain nested lists or references**
 *y* is an S-Expression. Value of *y* is expected to be a list of values if *x* is a list of symbols.
 
 The form bind the symbols or references in the LValue to the values in the RValue.
@@ -362,26 +441,29 @@ The form bind the symbols or references in the LValue to the values in the RValu
 		(_let a 1)              ; value 5 is bound to the symbol a
 		(_echo a)               ; prints 1
 		
-		(_let @b 2)             ; @b is a constant symbol with a value 2
+		(_let @b 2)             ; @b is a reference symbol with a value 2
+														; now @b is essentially a constant
 		(_echo @b)              ; prints 2
 
-		(_let @b 3)             ; Fails, because @b is a constant already defined
-		                        ; and the value of @b is not a symbol or list of symbols
+		(_let @b 3)             ; Fails, because @b is a constant
 
-		(_let @c b)             ; @c is a constant with value b. b is a symbol
+		(_let @c b)             ; @c is a reference symbol to symbol b
                             ; notice that @b and b are different
 
 		(_echo @c)              ; prints b
-		(_echo b)               ; prints b, because b is not bound to any value yet.
+		(_echo b)               ; prints b
 		
 		
-		(_let @c 4)             ; Because @c is a constant symbol bound to the symbol b
-                            ;	here b is bound to 4 and @c is unchanged and still 
-                            ; bound to the symbol b
+		(_let @c 4)             ; Because @c is a reference symbol to b,
+                            ;	b is bound to 4 and @c still referes to b
 		
 		(_echo @c)              ; prints b
 		(_echo b)               ; prints 4
 
+		(_let (x y) (2 3) )     ; x is bound to 2, y is bound to 3
+		(_echo x y)             ; prints 2 3
+
+		(_let (x :y) (1 2 3))   ; x is bound to 1, y is bound to (2 3)
 
 
 

@@ -25,7 +25,9 @@ _sync
   (_def && @{ $return (args[0]&&args[1]); }@ )
   (_def || @{ $return (args[0]||args[1]); }@ )
 
-  (_def concat @{ 
+	(_def not @{ $return (!args[0]); }@ )
+  
+	(_def concat @{ 
     let s = '';
     for (let arg of args) s += arg;
     $return (s);

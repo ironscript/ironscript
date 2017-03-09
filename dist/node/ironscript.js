@@ -4451,6 +4451,7 @@ var IError = function () {
  */
 
 var _ANY = new IronSymbol('__internal (any)');
+var _REST = new IronSymbol('__internal (rest)');
 
 var RhoState = function () {
   function RhoState() {
@@ -4474,11 +4475,21 @@ var RhoState = function () {
       return this.table.get(s.symbol);
     }
   }, {
+    key: 'captureRest',
+    value: function captureRest(sym, varvec) {
+      varvec.push(sym);
+      if (!this.table.has(_REST.symbol)) this.table.set(_REST.symbol, new RhoState());
+      return this.table.get(_REST.symbol);
+    }
+  }, {
     key: 'find',
     value: function find(sym, varvec) {
       if (this.table.has(sym.symbol)) return this.table.get(sym.symbol);else if (this.table.has(_ANY.symbol)) {
         varvec.push(sym);
         return this.table.get(_ANY.symbol);
+      } else if (this.table.has(_REST.symbol)) {
+        varvec.push(_REST);
+        return this.table.get(_REST.symbol);
       } else return null;
     }
   }, {
@@ -4528,8 +4539,8 @@ var Rho = function () {
         pcell = pcell.cdr;
       }
 
-      if (pcell !== null) {//TODO
-        //state = state.accept
+      if (pcell !== null) {
+        if (pcell instanceof IronSymbol && pcell.startsWith('@')) state = state.captureRest(pcell, varvec);
       }
 
       this.resolutionVector.push(new Resolution(varvec, resolutionBody));
@@ -4551,6 +4562,12 @@ var Rho = function () {
         }
         state = state.find(sym, varvec);
         if (state === null) break;
+
+        var cpt = varvec[varvec.length - 1];
+        if (cpt instanceof IronSymbol && _REST.equal(cpt)) {
+          varvec[varvec.length - 1] = acell;
+          break;
+        }
         acell = acell.cdr;
       }
       if (state === null || state.finalPointer === null) {
@@ -4703,7 +4720,7 @@ var Reference = function () {
     }
 
     this.keys = keys;
-    this.cmd = cmd;
+    if ((typeof obj === 'undefined' ? 'undefined' : _typeof(obj)) === 'object' && obj.__itype__ === 'env') this.cmd = 'get';else this.cmd = cmd;
   }
 
   createClass(Reference, [{
@@ -4719,7 +4736,8 @@ var Reference = function () {
           var key = _step.value;
 
           if ((typeof obj === 'undefined' ? 'undefined' : _typeof(obj)) === 'object') {
-            if (obj.__itype__ === 'collection' || obj.__itype__ === 'sequence') obj = obj.get(key);else obj = obj[key];
+            if (obj.__itype__ === 'collection' || obj.__itype__ === 'sequence') obj = obj.get(key);
+            if (obj.__itype__ === 'env') obj = obj.get(new IronSymbol(key));else obj = obj[key];
           } else return undefined;
         }
       } catch (err) {
@@ -5120,52 +5138,33 @@ function def(name, val, env, cb) {
 			});
 		});
 	} else if (name instanceof Cell) {
-		cellToArr(name, [], env, function (err, _env, _, names) {
-			evalAsync(val, env, function (err, _env, _, value) {
-				if (value instanceof Cell) {
-					cellToArr(value, [], env, function (err, _env, _, args) {
-
-						var evalArg = function evalArg(arg, _cb) {
-							evalAsync(arg, env, function (err, env, _, argval) {
-								_cb(err, argval);
-							});
-						};
-
-						mapLimit(args, 32, evalArg, function (err, argvals) {
-							var lst = Cell.list(argvals);
-							var i = 0;
-							var _iteratorNormalCompletion = true;
-							var _didIteratorError = false;
-							var _iteratorError = undefined;
-
-							try {
-								for (var _iterator = names[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
-									var n = _step.value;
-
-									def(n, argvals[i++], env, function (err, _env, _, val) {
-										if (err) cb(err);
-									});
-								}
-							} catch (err) {
-								_didIteratorError = true;
-								_iteratorError = err;
-							} finally {
-								try {
-									if (!_iteratorNormalCompletion && _iterator.return) {
-										_iterator.return();
-									}
-								} finally {
-									if (_didIteratorError) {
-										throw _iteratorError;
-									}
-								}
-							}
-
-							cb(null, env, null, lst);
+		evalAsync(val, env, function (err, _env, _, value) {
+			if (value instanceof Cell) {
+				cellToArr(value, [], env, function (err, _env, _, args) {
+					var evalArg = function evalArg(arg, _cb) {
+						evalAsync(arg, env, function (err, env, _, argval) {
+							_cb(err, argval);
 						});
+					};
+
+					mapLimit(args, 32, evalArg, function (err, argvals) {
+						var names = name;
+						var arglist = Cell.list(argvals);
+						while (names instanceof Cell) {
+							def(names.car, arglist.car, env, function (err) {
+								if (err) cb(err);
+							});
+							names = names.cdr;
+							arglist = arglist.cdr;
+						}
+						if (names !== null) def(names, arglist, env, function (err) {
+							if (err) cb(err);
+						});
+
+						cb(null, env, null, value);
 					});
-				} else cb('Expected a List as the RValue');
-			});
+				});
+			} else cb('LValue : ' + Cell.stringify(name) + ' RValue : ' + Cell.stringify(value) + ' <Expected a List as the RValue>');
 		});
 	} else if (name instanceof IronSymbol) {
 		evalAsync(val, env, function (err, _env, _, value) {
@@ -5173,6 +5172,10 @@ function def(name, val, env, cb) {
 			if (!sts) cb('can _def/_let only inside a _begin/_sync block');else cb(null, env, null, value);
 		});
 	} else cb("" + Cell.stringify(name) + "is not a valid LValue, Symbols, List of Symbols and References are the only valid LValues");
+}
+
+var egg = function () {
+	return "Ironscript Beta (1.2.1)";
 }
 
 /**
@@ -5197,6 +5200,10 @@ function def(name, val, env, cb) {
  * SOFTWARE.
  *
  */
+
+// changes from version to version, contextual usage only. 
+// (_import _egg) does some funny shit
+var _egg = new IronSymbol('_egg');
 
 var _cons = new IronSymbol('_cons');
 var _car = new IronSymbol('_car');
@@ -5223,6 +5230,8 @@ var _try = new IronSymbol('_try');
 var _self = new IronSymbol('_self');
 var _this = new IronSymbol('_this');
 var _null_ = new IronSymbol('NIL');
+var _true_ = new IronSymbol('_true');
+var _false_ = new IronSymbol('_false');
 
 var _coll = new IronSymbol('_coll');
 var _seq = new IronSymbol('_seq');
@@ -5254,7 +5263,7 @@ function cellToArr(cell, arr, env, cb) {
 		cell = cell.cdr;
 	}
 	if (cell !== null) {
-		evalAsync(cell, env, function (err, _env, _, val) {
+		nextTick(evalAsync, cell, env, function (err, _env, _, val) {
 			if (val instanceof Cell) cellToArr(val, arr, env, cb);else {
 				arr.push(val);
 				cb(err, env, null, arr);
@@ -5267,8 +5276,8 @@ function evalAsync(x, env) {
 	var cb = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : defaultCallback;
 
 	if (x instanceof IronSymbol) {
-		if (_self.equal(x)) cb(null, env, null, env);else if (_this.equal(x)) cb(null, env, null, env.collection);else if (_null_.equal(x)) cb(null, env, null, null);else env.getAsync(x, cb);
-	} else if (!(x instanceof Cell)) cb(null, env, null, x);else cellToArr(x, [], env, function (err, env, _, xarray) {
+		if (_self.equal(x)) cb(null, env, null, env);else if (_this.equal(x)) cb(null, env, null, env.collection);else if (_null_.equal(x)) cb(null, env, null, null);else if (_true_.equal(x)) cb(null, env, null, true);else if (_false_.equal(x)) cb(null, env, null, false);else env.getAsync(x, cb);
+	} else if (!(x instanceof Cell)) cb(null, env, null, x);else nextTick(cellToArr, x, [], env, function (err, env, _, xarray) {
 
 		if (_quote.equal(xarray[0])) cb(null, env, null, xarray[1]);else if (_eval.equal(xarray[0])) {
 			evalAsync(xarray[1], env, function (err, env, _, y) {
@@ -5276,10 +5285,10 @@ function evalAsync(x, env) {
 			});
 		} else if (_cons.equal(xarray[0])) {
 			(function () {
-				var car = xarray[1];
-				var cdr = xarray[2];
-				evalAsync(car, env, function (err, env, _, car) {
-					evalAsync(cdr, env, function (err, env, _, cdr) {
+				var _car = xarray[1];
+				var _cdr = xarray[2];
+				evalAsync(_car, env, function (err, env, _, car) {
+					evalAsync(_cdr, env, function (err, env, _, cdr) {
 						var list = Cell.cons(car, cdr);
 						cb(null, env, null, list);
 					});
@@ -5485,7 +5494,7 @@ function evalAsync(x, env) {
 					});
 				}, function (err, res) {
 					if (unsyncFlag) _env.unsync();
-					if (isColl) cb(err, env, null, _env.collection.obj);else cb(err, _env, null, res);
+					if (isColl) cb(err, env, null, _env.collection.obj);else nextTick(cb, err, _env, null, res);
 				});
 			})();
 		} else if (_stream.equal(xarray[0])) {
@@ -5572,7 +5581,7 @@ function evalAsync(x, env) {
 		} else if (_import.equal(xarray[0])) {
 			(function () {
 				var importfn = env.get(xarray[0]);
-				evalAsync(xarray[1], env, function (err, _env, _, sourcename) {
+				if (_egg.equal(xarray[1])) cb(null, env, null, egg());else evalAsync(xarray[1], env, function (err, _env, _, sourcename) {
 					var names = null;
 					if (x.cdr.cdr) names = xarray[2];
 					evalAsync(names, env, function (err, _env, _, namesList) {
@@ -5581,12 +5590,12 @@ function evalAsync(x, env) {
 				});
 			})();
 		} else {
-			evalAsync(xarray[0], env, function (err, env, _, func) {
+			nextTick(evalAsync, xarray[0], env, function (err, env, _, func) {
 				if (func instanceof Object && func.__itype__ === "env") {
 					var acell = x.cdr;
 					var reduced = func.rho.reduce(acell, env);
 					if (reduced === null) //cb( null, env, null, null);
-						evalAsync(Cell.list(xarray.slice(1)), env, cb);else evalAsync(reduced, env, cb);
+						evalAsync(Cell.list(xarray.slice(1)), env, cb);else nextTick(evalAsync, reduced, env, cb);
 				} else if (func instanceof Object && func.__itype__ === 'stream') {
 					func.addcb(cb);
 					cb(err, env, null, func.value);
@@ -5603,16 +5612,17 @@ function evalAsync(x, env) {
 						});
 					};
 
-					mapLimit(_args2, 32, _evalArg, function (err, argvals) {
+					mapLimit(_args2, 64, _evalArg, function (err, argvals) {
 						var _env = new Env(null, null, env);
-						func.apply(undefined, [err, _env, cb].concat(toConsumableArray(argvals)));
+						nextTick.apply(undefined, [func, err, _env, cb].concat(toConsumableArray(argvals)));
 					});
 				} else {
-					cb(null, env, null, Cell.list(xarray));
+					cb(null, env, null, x);
 				}
 			});
 		}
 	});
+	return;
 }
 
 /**
@@ -5641,15 +5651,16 @@ function evalAsync(x, env) {
 function fn(params, body, env) {
   var closureEnv = Env.clone(env);
   if (env.syncLock) closureEnv.sync();
-  return function (err, _env, cb) {
-    if (err) cb(err);
-
+  var proc = function proc(err, _env, cb) {
     for (var _len = arguments.length, args = Array(_len > 3 ? _len - 3 : 0), _key = 3; _key < _len; _key++) {
       args[_key - 3] = arguments[_key];
     }
 
-    evalAsync(body, new Env(params, Cell.list(args), closureEnv), cb);
+    if (err) cb(err);
+    nextTick(evalAsync, body, new Env(params, Cell.list(args), closureEnv), cb);
   };
+
+  return proc;
 }
 
 function fx(err, env, cb, f) {
