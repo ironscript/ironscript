@@ -30,12 +30,12 @@ import {nextTick} from 'async-es';
 export function fn (params, body, env) {
   let closureEnv = Env.clone(env);
   if (env.syncLock) closureEnv.sync();
-  return function ( err, _env, cb, ...args ) {
+  let proc = ( err, _env, cb, ...args ) => {
     if (err) cb (err);
-    //console.log (Cell.stringify(params), Cell.stringify(args),'\n\n');
-    //console.log ('\n\n\n\ndebug: \n----------------------------', new Env(params, Cell.list(args),env), '\n\n');
-    evalAsync( body, new Env(params, Cell.list(args), closureEnv), cb);
+    nextTick (evalAsync, body, new Env(params, Cell.list(args), closureEnv), cb);
   };
+
+	return proc;
 }
 
 export function fx (err, env, cb, f) {

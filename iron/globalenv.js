@@ -36,7 +36,6 @@ function echo (...args) {
     else if (arg instanceof Function) str += '[Function] ';
     else if (arg instanceof Object && arg.__itype__ === 'collection') {
       str += JSON.stringify(arg.obj) + " ";
-      //console.log(arg);
     }
     else if (arg instanceof Object && arg.__itype__ === 'sequence') str += JSON.stringify(arg.arr) + " ";
     else if (arg instanceof Object && arg.type === 'ironsymbol') str += arg.symbol + " ";

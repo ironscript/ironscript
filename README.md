@@ -38,13 +38,13 @@ Ironscript is in some ways influenced by that of Elm and clojurescript, with the
 being minimalism, interoperability with Javascript and metaprogramming capabilities. 
 
 In short I needed a programming language and/or libraries with the following capabilities:
-	
+  
 1. Should provide a mechanism to express asynchronous flow of data easily, intuitively and concisely.
-	
+  
 2. Preferably it should "call all its callbacks behind the screens" leaving a cconcise, readable
-	 and intuitive api to integrate with existing javascript code.
-	 i.e. it should abstract away the callbacks.
-	
+   and intuitive api to integrate with existing javascript code.
+   i.e. it should abstract away the callbacks.
+  
 3. Should be light, minimal, easily extensible and with minimum dependencies.
 
 The first requirement is met by async.js . But it did not abstract away all the callbacks. And after
@@ -96,32 +96,47 @@ terms and define them here before going further into the document.
 
 ##### Symbol
 Anything that does not have a literal value. Reserved words are termed as **special symbol**s. 
-Identifiers or names are symbols too. The symbols that start with **`@`** are treated like constants,
-i.e. once bound to a value, their values will not change. And if a constant is bound to a value
-which is a symbol or list of symbols, then the const can be used as LValue in a `_def`/`_let` form.
-In this case the symbol which is bound as the value of the constant will be used as the actual LValue
-for the `_def`/`_let` form.  (The `_def`/`_let` form binds identifier symbols to values)
+Identifiers or names are symbols too. The symbols that start with **`@`** are **reference symbols**.
+Unless a symbol is bound to any other value, the value of the symbol is itself.
+
+
+##### Reference Symbol
+A reference symbols are more relatable to a C++ reference. They can be bound to values only once in a scope.
+Once bound to a value, their values will not change. And if a reference is bound to a value
+which is a symbol or list of symbols, then the reference can be used as LValue in a `_def`/`_let` form.
+In this case the symbol or list of symbols bound as the value of the reference will be used as the actual LValue
+for the `_def`/`_let` form.  (The `_def`/`_let` form binds symbols to values)
+
+Reference symbols are used to capture expressions in the `_rho` rewriter.
+
+_An USEFUL SIDE EFFECT: A reference symbol bound to a non-symbolic value is essentially a **constant** ._
+
 
 ##### Special Symbols
 
-There are 32 special symbols defined in Ironscript.
+There are 36 special symbols defined in Ironscript.
 
-**`_cons`**		|		**`_car`**		|		**`_cdr`**		|		**`_quote`**
+**`_cons`**   |   **`_car`**    |   **`_cdr`**    |   **`_quote`**
 --------------|-----------------|-----------------|---------------
-**`_dot`**		|		**`_`**				|		**`_if`**			|		**`_def`**
-**`_let`**		|		**`_assign!`**|		**`_set!`**		|		**`_try`**
-**`_fn`**			|		**`_fr`**			|		**`_rho`**		|		**`_begin`**
-**`_sync`**		| 	**`_coll`**		|		**`_seq`**		|		**`_map`**
-**`_filter`**	|		**`_push`**		|		**`_pull`**		|		**`_pop`**
-**`_stream`**	|		**`_do`**			|		**`_on`**			|		**`_include`**
-**`_import`**	|		**`_self`**		|		**`_this`**		|		**`NIL`**
+**`_dot`**    |   **`_`**       |   **`_if`**     |   **`_def`**
+**`_let`**    |   **`_assign!`**|   **`_set!`**   |   **`_try`**
+**`_fn`**     |   **`_fr`**     |   **`_rho`**    |   **`_begin`**
+**`_sync`**   |   **`_coll`**   |   **`_seq`**    |   **`_map`**
+**`_filter`** |   **`_push`**   |   **`_pull`**   |   **`_pop`**
+**`_stream`** |   **`_do`**     |   **`_on`**     |   **`_include`**
+**`_import`** |   **`_self`**   |   **`_this`**   |   **`NIL`**
+**`_true`**   |   **`_false`**  |   **`_all`**    |
 
 
-Among these **special symbol**s `_self`, `_this` and `NIL` have predefined values bound to them. 
+Among these **special symbol**s `_self`, `_this`, `_true`, `_false` and `NIL` have predefined values bound to them. 
+`_all` has contextual semantics in the `_import` special form. `(_import <filepath> _all)` imports all names defined 
+in the Ironscript module at filepath.
 The other **special symbol**s are bound with **special form**s.
 
 **`_self`** always refers to the current **scope**.  
 **`_this`** always refers to the current **collection**.  
+**`_true`** is the truth. (boolean true)
+**`_false`** is essentially the lie !!! (boolean false)
 **`NIL`** is the empty list () and is equivalent to null in Javascript.  
 
 Each **special symbol**, with the exception of `NIL`, starts with `_`, though `_` is not restricted 
@@ -133,6 +148,13 @@ etc start with `_` too.
 A scope is a set of bindings between symbols and values. Scopes are dynamic in Ironscipt, but
 Lexical scoping is available through the `_begin` **special form**.
 
+**Scopes can be synced or unsynced.** A **synced scope** is a scope where symbols can be bound to values.
+When a scope is **unsynced** symbols can not be bound to values.
+
+Scopes are **unsynced by default**, only the *`_begin` special form creates scopes which are synced by default.*
+An unsynced scope can be synced for evaluation of a set of expressions using the `_sync` special form.
+
+
 ##### Form
 A form is a class of **S-Expressions** which follow a **defined** structue and semantics of evaluation.
 
@@ -143,7 +165,7 @@ There are 27 special forms defined in Ironscript.
 ##### Cell
 A cell is a **cons cell** or a **dotted pair**. [Read here](https://en.wikipedia.org/wiki/Cons) for more info.
 In Ironscript instead of **dotted pair**s are written as `(a : b)` instead of `(a . b)` and `:` is called the
-append operator.
+**construct operator**.
 
 A cell has 2 fields, the **car** field and the **cdr** field. For people acquainted with the concept of singly
 linked lists, a cell is equivalent to a *node in a singly linked list* where  the **car** field is equivalent to 
@@ -167,31 +189,33 @@ just like any other Javascript Object created with `Object.create(null)`.
 A sequence is a contained/wrapped Javascript Array. Though Ironscript is built around `_cons` based lists, sequences
 provide better performance on data for obvious reasons.
 
-
+#### LValue and RValue
+Anything that can be bound to a value using a `_def`/`_let` or `_assign!`/`_set!` is a LValue.  
+The value being bound to the LValue is the RValue. See the `_def` / `_let` special form section for more info.
 
 
 ### The Grammar
 
 * Comments start with ';' and end with '\n' (newline).
 * An Ironscript program is an S-Expression. example: `( _begin (_echo "Hello") (_echo "World !") )`
-*	An S-Expression is
-	+ An Atom
-	+ A space separated list of S-Expressions enclosed within ( and ) or [ and ] or { and }
-	+ An expression of the form (*a* : *b*) or [*a* : *b*] or {*a* : *b*} 
-		where *a* is a space separated list of S-Expressions and *b* is an S-Expressions.
+* An S-Expression is
+  + An Atom
+  + A space separated list of S-Expressions enclosed within ( and ) or [ and ] or { and }
+  + An expression of the form (*a* : *b*) or [*a* : *b*] or {*a* : *b*} 
+    where *a* is a space separated list of S-Expressions and *b* is an S-Expressions.
 * An Atom is 
-	+ a number, examples: 1 1.0 -1 0.1 3.141592653 1024
-	+ a string, examples: "Hello world" "John Doe"
-	+ a block of Javascript code enclosed within @{ and }@
-	+ a symbol, anything that is not a number, string, block of code nor S-Expression. example: concat, _echo, _begin, NIL, myVar
+  + a number, examples: 1 1.0 -1 0.1 3.141592653 1024
+  + a string, examples: "Hello world" "John Doe"
+  + a block of Javascript code enclosed within @{ and }@
+  + a symbol, anything that is not a number, string, block of code nor S-Expression. example: concat, _echo, _begin, NIL, myVar
 
 * Operators are
-	+ Parentheses `(` and `)`
-	+ Braces `{` and `}` 
-	+ Brackets `[` and `]`
-	+ dot `.`
-	+ quote `'`
-	+ append `:`
+  + Parentheses `(` and `)`
+  + Braces `{` and `}` 
+  + Brackets `[` and `]`
+  + dot `.`
+  + quote `'`
+  + construct `:`
 
 
 
@@ -208,41 +232,41 @@ The evaluator follows the following rules.
 #### Evaluation Rules
 
 1. If the S-Expression being evaluated is an Atom 
-	
-	1. If the S-Expression is a number, then its value is the number
-	2. If the S-Expression is a string, then its value is the string
-	3. If the S-Expression is a block of Javascript code enclosed within @{ and }@, 
-		then its value is the ironscript function constructed from the block of code.
-	
-	4.	If the S-Expression is a symbol
-		1. If the S-Expression is a special symbol, then it has a predefined value.
-		2. the symbol has a value bound to it in the scope
-		3. the value of the symbol is the symbol itself
+  
+  1. If the S-Expression is a number, then its value is the number
+  2. If the S-Expression is a string, then its value is the string
+  3. If the S-Expression is a block of Javascript code enclosed within @{ and }@, 
+    then its value is the ironscript function constructed from the block of code.
+  
+  4.  If the S-Expression is a symbol
+    1. If the S-Expression is a special symbol, then it has a predefined value.
+    2. the symbol has a value bound to it in the scope
+    3. the value of the symbol is the symbol itself
 
 2. If the S-Expression being evaluated is a list of S-Expression, 
-	 then the value of the first S-Expression of the list is the Form-marker.
-	
-	1. If the Form-marker is a **special symbol** with a **special form** bound to it, 
-		then the value of the S-Expression is evaluated according to the **special form**'s evaluation semantics.
-	
-	2. If the Form-marker is a function
-		1. The rest of the list is the arguments list to the function
-		2. The value of the S-Expression is the value of the function evaluated with the list of arguments.
-	
-	3. If the Form-marker is a reference to a **defined form**
-		then the rest of the list evaluated according to the defined form is the value of the S-Experssion.
-	
-	4. If the Form-marker is a reference to a **scope**
-		1. The rest of the list is the pattern
-		2. Match the pattern against the **RewriteRules** defined in the scope 
-			 and get the resolution of the pattern.
-		3. Value of the S-Expression is the value of the resolution evaluated on the current enclosing scope.
-	
-	5. If the Form-marker is a reference to a **stream**, 
-		 then the value of the S-Expression is the current value of the stream.
-		 The value of the S-Expression changes with the value of the stream.
-	
-	6. Othewise the value of the S-Expression is the S-Expression itself.
+   then the value of the first S-Expression of the list is the Form-marker.
+  
+  1. If the Form-marker is a **special symbol** with a **special form** bound to it, 
+    then the value of the S-Expression is evaluated according to the **special form**'s evaluation semantics.
+  
+  2. If the Form-marker is a function
+    1. The rest of the list is the arguments list to the function
+    2. The value of the S-Expression is the value of the function evaluated with the list of arguments.
+  
+  3. If the Form-marker is a reference to a **defined form**
+    then the rest of the list evaluated according to the defined form is the value of the S-Experssion.
+  
+  4. If the Form-marker is a reference to a **scope**
+    1. The rest of the list is the pattern
+    2. Match the pattern against the **Rewrite rules** defined in the scope 
+       and get the resolution of the pattern.
+    3. Value of the S-Expression is the value of the resolution evaluated on the current enclosing scope.
+  
+  5. If the Form-marker is a reference to a **stream**, 
+     then the value of the S-Expression is the current value of the stream.
+     The value of the S-Expression changes with the value of the stream.
+  
+  6. Othewise the value of the S-Expression is the S-Expression itself.
 
 
 #### Special Forms
@@ -259,6 +283,16 @@ As mentioned earlier, there are 27 **Special forms** defined in Ironscript. Here
 Where *x* and *y* are S-Expressions.  
 Value of this form is a **cell** whose **car** field is the value of *x* and **cdr** field is the value of *y*.
 
+
+**examples**
+    
+    (_cons 1 2 )      ; evaluates to ( 1 : 2 )
+    (_cons 1 (2) )    ; evaluates to ( 1 2 )
+    (_cons 1 NIL )    ; evaluates to (1)
+
+
+
+
 ----------------------------------
 
 
@@ -271,16 +305,33 @@ If the value of *x* is a List, then value of this form is the **car** field of t
 Else the value of this form is `NIL`.
 
 
+**examples**
+
+    (_car ( 1 2 ) )     ; evaluates to 1
+    (_car ( (1 2) 3) )  ; evaluates to ( 1 2 )
+    (_car 1)            ; evaluaes to NIL
+
+
+
 ----------------------------------
 
 
 ### `_cdr`
-		
+    
 **form** : `(_cdr x)`
 
 Where *x* is an S-Expression.  
 If the value of *x* is a List, then value of this form is the **cdr** field of the first cell (root node) of the list.  
 Else the value of this form is `NIL`.
+
+
+**examples**
+    
+    (_cdr (1 2) )      ; evaluates to (2)
+    (_cdr (1 :2) )     ; evaluates to 2
+    (_cdr 1)           ; evaluates to NIL
+
+
 
 
 ----------------------------------
@@ -294,6 +345,14 @@ Else the value of this form is `NIL`.
 Where *x* is an S-Expression.  
 Value of this form is *x*.
 
+
+**examples**
+
+    (_quote x)      ; evaluates to x
+    (_quote (a b))  ; evaluates to (a b)
+    'a              ; evaluates to a
+    '(a b)          ; evaluates (a b)
+    '(+ 3 4)        ; evaluates to (+ 3 4)
 
 
 ----------------------------------
@@ -312,6 +371,23 @@ in Javascript. For example the Ironscript equivalent of `Obj[key1][key2][key3]` 
 and the equivalent of `Obj.key1.key2.key3` would be `Obj.key1.key2.key3`.
 
 
+**examples**
+    
+    (_let lang {} )                   ; lang is a collection, 
+                                      ; JS equivalent: let lang = {}
+    (_let lang.name 'Ironscript')     ; lang.name = 'ironscript'
+    (_let lang.version '1.2')         ; lang.version = '1.2'
+
+    (_echo lang.name)                 ; prints Ironscript
+    (_echo lang.version)              ; prints 1.2
+
+    ; we can also define lang like the following
+
+    (_let lang {
+      (_let .name 'Ironscript')
+      (_let .version '1.2')
+    })
+
 
 ----------------------------------
 
@@ -321,7 +397,13 @@ and the equivalent of `Obj.key1.key2.key3` would be `Obj.key1.key2.key3`.
 **form** : `(_ x)`
 
 Where *x* is an S-Expression.  
-Value of this form is the *value of value of* x.
+Value of this form is the *value of value of* x.  
+It can be said that `_` is the semantic opposite of `_quote` or `'`.
+
+**examples**
+    
+    '(+ 3 4)           ; evaluates to (+ 3 4)
+    (_ '(+ 3 4))       ; evaluates yo 7
 
 
 ----------------------------------
@@ -334,18 +416,260 @@ Value of this form is the *value of value of* x.
 Where *cond*, *then* and *else* are S-Expressions.  
 Value of this form is value of *then* if value of *cond* is a Truthy value in Javascript, otherwise the value of *else*.
 
+**examples**
+
+    (_if (_true) (_echo a) (_echo b) )    ; prints a
+    (_if (_false) (_echo a) (_echo b) )   ; prints b
+
+
 
 ----------------------------------
 
 
 ### `_def` / `_let`
 
+**`_def` and `_let` are special symbols bound to this special form. Hence, `(_def ...)` and `(_let ...)` are
+semantically identical.**
+
 **form** : `(_def x y)` or `(_let x y)`
 
+Where *x* is a (1) **Symbol** or a (2) **list of Symbols** or a (3) **reference to a field in a collection** 
+or a (4) **reference symbol** whose value is either (1) or (2) or (3).
+If *x* is not (1) or (2) or (3) or (4) then it's not a valid LValue.
+
+
+**Note that a *list of symbols* is a linear list of symbols, it can not contain nested lists or references**
+*y* is an S-Expression. Value of *y* is expected to be a list of values if *x* is a list of symbols.
+
+The form **binds the symbols or references** in the LValue to the values in the RValue **in current scope**.
+The form binds symbols to values **only if the current scope is a synced scope**
+*(Know more about scopes in the Understanding Scope section)*
+
+**examples**
+
+    (_let a 1)              ; value 5 is bound to the symbol a
+    (_echo a)               ; prints 1
+    
+    (_let @b 2)             ; @b is a reference symbol with a value 2
+                            ; now @b is essentially a constant
+    (_echo @b)              ; prints 2
+
+    (_let @b 3)             ; Fails, because @b is a constant
+
+    (_let @c b)             ; @c is a reference symbol to symbol b
+                            ; notice that @b and b are different
+
+    (_echo @c)              ; prints b
+    (_echo b)               ; prints b
+    
+    
+    (_let @c 4)             ; Because @c is a reference symbol to b,
+                            ; b is bound to 4 and @c still referes to b
+    
+    (_echo @c)              ; prints b
+    (_echo b)               ; prints 4
+
+    (_let (x y) (2 3) )     ; x is bound to 2, y is bound to 3
+    (_echo x y)             ; prints 2 3
+
+    (_let (x :y) (1 2 3))   ; x is bound to 1, y is bound to (2 3)
+
+
+
+----------------------------------
 
 
 
 
+### `_assign!` / `_set!`
+
+**`_assign!` and `_set!` are special symbols bound to this special form. Hence, `(_assign! ...)` and `(_set! ...)` are
+semantically identical. These are appended with ! to signify that these should be used carefully.**
+
+**form** : `(_assign! x y)` or `(_set! x y)`
+
+Where *x* is a **Symbol** and *y* is an **S-Expression**.
+
+If *x* is **not** bound to a value in **current scope** then the form finds the **nearest scope up the scope chain** where
+*x* is bound to a value and updates *x* there with value of *y*.
+
+If *x* is bound to a value in the **current scope**, then its value is updated to the value of *y*.
+The form binds the value to *x*  **only if the scope where x is found is a synced scope**.
+
+*(Know more about scopes in the Understanding Scope section)*
+
+
+**example**
+    
+    (_let a 1)            ; a is bound to 1
+    (_set! a 2)           ; now a is bound to 2
+
+
+----------------------------------
+
+
+
+###  `_try`
+
+**form** : `(_try x y)`
+
+Where *x* and *y* are S-Expressions. If value of *x* is evaluated without any error then then value of the form
+is value of *x*, else the value of the form is value of *y*.
+
+**examples**
+
+    (_try 
+      (_let 1 1) 
+      (_echo "Can not bind a literal value to another literal value")
+    ) 
+    
+    ; the _echo expression is evaluated
+
+
+
+----------------------------------
+
+
+
+### `_fn` 
+
+**form** : `(_fn params body)`
+
+Where *params* is a list of symbols and *body* is an S-Expression. The value of this form is an **anonymous function**.
+When the function is called its **arguments are evaluated asynchronously** and when all arguments have been evaluated the
+body of the function is evaluated in a scope where parameters are bound to the values of the arguments.
+
+**examples**
+
+    (_let twice (_fn (x) (* 2 x) ) )         ; define a function twice
+    (twice 2)                                ; evaluates to 4
+
+    (_let factorial (_fn (n)                 ; define factorial 
+      (_if (=== n 0) 
+        1
+        (* n (factorial (- n 1) ) )          ; recursively call factorial
+      )
+    ) )
+        
+    (factorial 5)                            ; evaluates to 120
+
+
+
+
+----------------------------------
+
+
+
+### `_fr`
+
+**form** : `(_fr params body)`
+
+Where *params* is a list of symbols and *body* is an S-Expression. Its usage is identical to that of `_fn`,
+but its value is an **anonymous form**. When the form is evaluated the **arguments are by default quoted**
+and the value of the form is the value of the body evaluated in a scope where the parameters are bound to 
+the arguments.
+
+**examples**
+
+    ; Implementation of the LISP cond macro using _fr
+    ; Note the use of _ to evaluate the args when needed, 
+    ; because the args are passed implicitly quoted.
+
+
+    (_let cond (_fr (case :rest)        ; Note the :rest, the construct operator
+                                        ; is used to implement variadic behaviour
+      (_if (_ (_car case) )
+        (_ (_car (_cdr case) ) )
+        (_ (cond :rest) )               ; if first case is false recursively evaluate :rest
+      )
+    ) )
+
+    ; Using the cond form
+
+    (cond 
+      ( (== 1 2) (_echo "case a") )
+      ( (== 1 1) (_echo "case b") )
+      ( _true    (_echo "case c") )
+    )                                   ; prints case b
+
+
+
+----------------------------------
+
+
+### `_rho`
+
+**form** : `(_rho pattern body)`
+
+`_rho` defines a **rewrite rule** in the **Rho** of the **current scope**. 
+A **rewrite system or Rho** is embedded with each scope. When the **Rho** of a scope is invoked on an S-Expression
+it transforms an S-Expression according to the rules defined in it. **Reference symbols** are used to capture
+S-Expressions in the pattern and pass them to the body.
+
+
+**exampls**
+    
+    ; define a rewrite rule to rewrite the pattern 
+    ; (_self x = y) as (_let x y), wehre x and y are 
+    ; S-Expressions and _self refers to current scope
+
+    (_rho ( @a = @b ) (_let @a @b) )
+    
+  
+    ; using the rule
+    (_self a = 5)                  ; a is bound to 5
+
+
+    ; we can also write
+    [a = 5]                        ; a is bound to 5
+    ; [ expr ] is the syntactical shorthand for (_self expr)
+
+
+
+
+----------------------------------
+
+
+
+### `_begin`
+
+**form** : `(_begin exp_1 exp_2 exp_3 ... exp_n)`
+
+Where *exp_1* ... *exp_n* are S-Expressions. The form evaluates the S-Expressions one-by-one in its **own scope**.
+The scope of this form is **synced**. The value of the form is the value of *exp_n*.
+
+**examples**
+
+    (_begin
+      [ 
+        y = (_begin            ; current synced scope of _begin
+              [ x = 1 ]        ; define x = 1 in current scope
+              [_echo x]        ; prints 1
+              x                ; value of last experssion is 1
+            )
+      ]                        ; hence y is bound to 1 now
+    )
+
+
+
+
+----------------------------------
+
+
+
+### `_sync`
+
+**form** : `(_sync exp_1 exp_2 ... exp_1)`
+
+Where *exp_1* ... *exp_n* are S-Expressions. The form **syncs the current scope** and evaluates 
+the S-Expressions one-by-one. The value of the form is the value of *exp_n*.
+
+**examples**
+
+    (_sync
+      (_include "stdlib")       ; includes stdlib
+      (_echo "hello world")     ; prints hello world
+    )
 
 
 Internally Ironscript functions are asynchronous javascript functions invoked by the asynchronous 

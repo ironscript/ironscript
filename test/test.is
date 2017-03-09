@@ -8,23 +8,84 @@
 
 
 _begin
-  
+  (_include "stdlib")
+	(_rho (@a = @b) (_let @a @b) )
+
+	(_echo (1:2))
+
+	(_let sum-to-n (_fn (n) (_if (== n 0) 0 (+ n (sum-to-n (- n 1) ) ) ) ) )
+	
+	(_let sum-to-n-opt (_fn (n acc) (_if (== n 0) acc  (sum-to-n (- n 1) (+ n acc) ) ) ) ) 
+	(_echo (sum-to-n 80) )
+
+
+
+	(_let range (_fn (lower upper step)
+		(_if (>= lower upper) 
+			NIL
+			(_cons lower (range (+ lower step) upper step) )
+		)
+	) )
+
+	(_let one-to-ten (range 1 11 1) )
+	(_echo one-to-ten)
+	(_echo (_seq :one-to-ten))
+
+	(_let list-comp (_fn (func list)
+		(_if (not list)
+			NIL
+			(_begin
+				(_let car (func (_car list) ) )
+				(_cons car (list-comp func (_cdr list) ) )
+			)
+		)
+	) )
+	(_rho (list @funcbody for @iter in @list) (list-comp (_fn @iter @funcbody) @list) )
+	(_rho (seq @funcbody for @iter in @list) (_ (_cons _seq [list @funcbody for @iter in @list] ) ) ) 
+
+	(_echo (list-comp (_fn (x) (+ x 2) ) ( 1 2 3) ) )
+	
+
+	;(_echo [list (* x 2) for (x) in (range 1 100000 1) ] )
+	
+	(_echo [seq (* x x) for (x) in (range 1 10 1) ] )
+	
+
+
+	;(_rho (testing @a @b :rest) (_echo @a @b rest))
+	
+	(_rho (testing @a @b :@rest) (_echo @a @b :@rest))
+	[testing (Anton Chekhov) (Leo Tolstoy) (Maxim Gorkey) (Jack Lonndon)]
+
+
+	(_let mod (_import "./test1.is" (name) ) )
+	(_echo mod.name)
+	(_echo name)
+	(_echo (_import _egg))
 
   ( @{
     //console.log(vdom);  
   }@ )
 
-	(_rho (@a = @b) (_let @a @b) )
+	
+	(_echo (_cdr 1))
+	[(p :q) = (1 2 3)]
+	(_echo  q)
 	
 
 	[@a = (x y)]
-	[@a = (2 3)]
+	[(z :@a) = (1 2 3)]
+	(_echo z x y )
 
-	(_echo @a x y )
+
+	[(@a @b) = ((5 6) 7)]
+	(_echo @a @b x y )
 
 
-  (_include "stdlib")
 
+
+	(_def add-by-ref (_fn (@a @b) (+ @a @b)))
+	(_echo (add-by-ref 100 10) )
   
   
   (_def a 1) 
@@ -52,19 +113,19 @@ _begin
 	
 
   (_rho (@a + @b) (+ @a @b) )
-  (_rho '(@a + @b + @c) (+ [@a + @b] @c))
+  (_rho (@a + @b + @c) (+ [@a + @b] @c))
   
   (_self 1 + 2 + 3)
   (_echo (! 5))
 
-  (_rho '(@n !) (! @n) )
+  (_rho (@n !) (! @n) )
   (_echo [5 !])
 
 
 
 
-  (_rho '(say hello to @name) (_echo (concat "Hello " @name "! Have a nice day.")))
-  (_rho '(say bye to @name) (_echo (concat "Well " @name ", I got to go. Bye.")))
+  (_rho (say hello to @name) (_echo (concat "Hello " @name "! Have a nice day.")))
+  (_rho (say bye to @name) (_echo (concat "Well " @name ", I got to go. Bye.")))
   
   (_def me "GNSP@GNEOS")
 
@@ -85,14 +146,13 @@ _begin
 
 
 
-  (_echo (_try ( @{ $throw(1);}@ ) "caught the error") )
+  (_echo (_try (_def 1 1) "caught the error") )
   
 
-	(_def variadic (_fn (a : b) (+ a :b) ) )
+	(_def variadic (_fn (a : b) b ) )
 	(_echo (variadic 1 2 3 4 5 6 7 8 9) )
 	(_echo (variadic 1 ) )
 
-	;(_echo (_ (_cons + (variadic 1 2 3) ) ) )
 
 	(_def sum (_fn (arg1 : args) (_if args (+ arg1 (sum :args) )  arg1 ) ) ) 
 	(_def sumjs @{
@@ -164,16 +224,8 @@ _begin
 
 
 
-
-	[myNum = 10]
-	(_echo myNum)
-
   (_def myColl {
-    ;(_let .name "Ganesh")
-    ;(_let .roll "112CS0558")
-
-		[.name = "Ganesh"]
-		[.roll = "112CS0558"]
+		[(.name .roll) = ("Ganesh" "112CS0558")]
   })
 
   (_echo myColl)

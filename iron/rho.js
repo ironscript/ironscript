@@ -26,9 +26,9 @@ import IronSymbol from './symbol.js';
 import Cell from './cell.js';
 import IError from './errors.js';
 import Env from './env.js';
-//import {inspect} from 'util';
 
 const _ANY = new IronSymbol('__internal (any)');
+const _REST = new IronSymbol('__internal (rest)');
 
 class RhoState {
   constructor () {
@@ -46,16 +46,26 @@ class RhoState {
       s = _ANY;
     }
     if (!(this.table.has(s.symbol))) this.table.set(s.symbol, new RhoState());
-    //console.log(this.table.get(s.symbol));
     return this.table.get(s.symbol);
   }
+
+	captureRest (sym, varvec) {
+		varvec.push(sym);
+    if (!(this.table.has(_REST.symbol))) this.table.set(_REST.symbol, new RhoState());
+    return this.table.get(_REST.symbol);
+	}
+
+		
 
   find (sym, varvec) {
     if (this.table.has(sym.symbol)) return this.table.get(sym.symbol);
     else if (this.table.has(_ANY.symbol)) {
       varvec.push(sym);
-      //console.log ('\n\n\nvarvec -----', varvec);
       return this.table.get(_ANY.symbol);
+    }
+    else if (this.table.has(_REST.symbol)) {
+      varvec.push(_REST);
+      return this.table.get(_REST.symbol);
     }
     else return null;
   }
@@ -94,66 +104,67 @@ export default class Rho {
     let varvec = [];
     let state = this.initialState;
     let pcell = pattern;
-    //console.log ('\n\n\ndebug-rho-pattern: \n-------\n', inspect(pattern));
     while (pcell instanceof Cell) {
-      //console.log ('\n\n\ndebug: \n-------\n', inspect(state));
       state = state.accept(pcell.car, varvec);
       if (state instanceof IError) return state;
       pcell = pcell.cdr;
     }
 
-		if (pcell !== null) {//TODO
-			//state = state.accept
+		if (pcell !== null) {
+			if (pcell instanceof IronSymbol && pcell.startsWith('@')) 
+				state = state.captureRest (pcell, varvec);
 		}
    
 
-    //console.log('debug: ',varvec);
     this.resolutionVector.push (new Resolution (varvec, resolutionBody));
     state.makeFinal (this.size);
     this.size++;
     return true;
   }
 
-  find (cell) {
+  find (cell, env) {
     let state = this.initialState;
     let acell = cell;
     let varvec = [];
 
     while (acell instanceof Cell) {
-      state = state.find (acell.car, varvec); 
-       if (state === null) break;
-       acell = acell.cdr;
+			let sym = acell.car;
+			if (sym instanceof IronSymbol && sym.startsWith('@')) {
+				sym = env.get(sym);
+			}
+    	state = state.find (sym, varvec); 
+    	if (state === null) break;
+
+			let cpt = varvec [varvec.length - 1];
+			if (cpt instanceof IronSymbol && _REST.equal(cpt) ) {
+				varvec [varvec.length - 1] = acell;
+				break;
+			}
+    	acell = acell.cdr;
     }
     if (state === null || state.finalPointer === null) {
       varvec = [];
       if (this.env.par !== null) {
-        //console.log ('\n\nSEARCHING PARENT ... ... ...\n\n');
-        //console.log ('\n\n\nvarvec ==== ', varvec);
-        let r = this.env.par.rho.find (cell);
-        //console.log ('\n\n\nvarvec ===== ', varvec);
+        let r = this.env.par.rho.find (cell, env);
         return r;
       }
       else return [null, []];
     }
-    //console.log (inspect (this.resolutionVector [state.finalPointer]));
-    //console.log ('\n\n\nvarvec ******* ', varvec);
     return [this.resolutionVector [state.finalPointer], varvec];
   }
       
 
 
   reduce (cell, env) {
-    let res, varvec;
-    //console.log ('\n\n\n#############################\n\n\n', varvec);
-    let r = this.find(cell);
-    //console.log(r);
-    res = r[0];
-    if (res === null) return null;
-
-    varvec = r[1];
-    let args = [];
-    let argStrs = [];
-    for (let v of varvec) {
+    let r = this.find(cell, env);
+    if (r[0] === null) return null;
+		return Rho.reduce_internal (r[0].body, r[0].params, r[1], env);
+	}
+	
+	static reduce_internal (body, params, varvec, env) {
+		let args = [];
+		let argStrs = [];
+		for (let v of varvec) {
       if (v instanceof IronSymbol) {
         args.push(env.get(v));
         argStrs.push(v.symbol);
@@ -170,7 +181,7 @@ export default class Rho {
 
     let paramsList = [];
     let argsList = [];
-    for (let s of res.params) {
+    for (let s of params) {
       if (s.startsWith('@')) {
         paramsList.push(s);
         argsList.push(args.shift());
@@ -179,12 +190,24 @@ export default class Rho {
       }
     }
 
-
-    //console.log ('\n\n\ndebug: \n----------\n\n\n', inspect(res), '\n\n\n', inspect(cell), '\n\n\n', varvec, '\n\n\n', inspect(env));
-    //let scope = new Env (Cell.list(res.params), Cell.list(args), env);
-    //console.log('debug: \n' +inspect(scope));
-    return new Reduced (res.body, paramsList, argsList);
+    let scope = new Env (Cell.list(paramsList), Cell.list(argsList), null);
+		return Rho.rewrite (body, scope);
   }
+
+	static rewriteCell (cell, scope) {
+		if (cell instanceof Cell) {
+			let c = new Cell (Rho.rewrite(cell.car, scope));
+			c.cdr = Rho.rewrite (cell.cdr, scope);
+			return c;
+		}
+		return cell;
+	}
+
+	static rewrite (body, scope) {
+		if (body instanceof Cell) return Rho.rewriteCell (body, scope);
+		else if (body instanceof IronSymbol) return scope.get (body);
+		else return body;
+	}
 }
 
 
