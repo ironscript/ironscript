@@ -44,8 +44,11 @@ _begin
 	(_rho (seq @funcbody for @iter in @list) (_ (_cons _seq [list @funcbody for @iter in @list] ) ) ) 
 
 	(_echo (list-comp (_fn (x) (+ x 2) ) ( 1 2 3) ) )
-	(_echo [list (* x 2) for (x) in (range 1 6 1) ] )
-	(_echo [seq (* x x) for (x) in (range 1 1050 1) ] )
+	
+
+	;(_echo [list (* x 2) for (x) in (range 1 100000 1) ] )
+	
+	(_echo [seq (* x x) for (x) in (range 1 10 1) ] )
 	
 
 
@@ -143,7 +146,7 @@ _begin
 
 
 
-  (_echo (_try ( @{ $throw(1);}@ ) "caught the error") )
+  (_echo (_try (_def 1 1) "caught the error") )
   
 
 	(_def variadic (_fn (a : b) b ) )

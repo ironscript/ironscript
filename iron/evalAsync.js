@@ -143,7 +143,7 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 			evalAsync( _car, env, (err, env, _, car) => {
 				evalAsync( _cdr, env, (err, env, _, cdr) => {
 					let list = Cell.cons(car, cdr);
-					cb( null, env, null, list);
+					nextTick (cb, null, env, null, list);
 				});
 			});
 		}
@@ -160,7 +160,7 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 			let args = xarray.slice(1);
 			let evalArg = (arg, _cb) => {
 				evalAsync( arg, env, (err, env, _, argval) => {
-					_cb( err, argval);
+					nextTick (_cb, err, argval);
 				});
 			};
 			
@@ -184,7 +184,7 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 					evalAsync( _func, env, (err, _env, _, func) => {
 						if (func instanceof Function) {
 							let cbfn = (arg, _cb) => {
-								func( null, env, (err, _env, _, val) => {_cb(err, val);}, arg.val, arg.index);
+								nextTick (func, null, env, (err, _env, _, val) => {_cb(err, val);}, arg.val, arg.index);
 							}
 							if (_map.equal(xarray[0]))
 								mapLimit (arr, 32, cbfn, (err, newarr) => {
@@ -212,7 +212,7 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 
 			let evalArg = (arg, _cb) => {
 				evalAsync( arg, env, (err, env, _, argval) => {
-					_cb( err, argval);
+					nextTick (_cb, err, argval);
 				});
 			};
 			

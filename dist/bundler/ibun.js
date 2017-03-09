@@ -5290,7 +5290,7 @@ function evalAsync(x, env) {
 				evalAsync(_car, env, function (err, env, _, car) {
 					evalAsync(_cdr, env, function (err, env, _, cdr) {
 						var list = Cell.cons(car, cdr);
-						cb(null, env, null, list);
+						nextTick(cb, null, env, null, list);
 					});
 				});
 			})();
@@ -5305,7 +5305,7 @@ function evalAsync(x, env) {
 			var args = xarray.slice(1);
 			var evalArg = function evalArg(arg, _cb) {
 				evalAsync(arg, env, function (err, env, _, argval) {
-					_cb(err, argval);
+					nextTick(_cb, err, argval);
 				});
 			};
 
@@ -5352,7 +5352,7 @@ function evalAsync(x, env) {
 							evalAsync(_func, env, function (err, _env, _, func) {
 								if (func instanceof Function) {
 									var cbfn = function cbfn(arg, _cb) {
-										func(null, env, function (err, _env, _, val) {
+										nextTick(func, null, env, function (err, _env, _, val) {
 											_cb(err, val);
 										}, arg.val, arg.index);
 									};
@@ -5400,7 +5400,7 @@ function evalAsync(x, env) {
 
 				var evalArg = function evalArg(arg, _cb) {
 					evalAsync(arg, env, function (err, env, _, argval) {
-						_cb(err, argval);
+						nextTick(_cb, err, argval);
 					});
 				};
 
