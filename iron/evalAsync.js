@@ -63,7 +63,9 @@ const _fr = new IronSymbol ('_fr');
 const _begin = new IronSymbol ('_begin');
 const _sync = new IronSymbol ('_sync');
 const _rho = new IronSymbol ('_rho');
+
 const _try = new IronSymbol ('_try');
+const _err = new IronSymbol ('_err');
 
 const _self = new IronSymbol ('_self'); 
 const _this = new IronSymbol ('_this');
@@ -234,9 +236,13 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 		else if (_try.equal(xarray[0])) {
 			let expr = xarray[1];
 			let onerror = xarray[2];
-			evalAsync( expr, env, (err, env, _, res) => { 
-				if (err) evalAsync (onerror, env, cb);
-				else cb(null, env, null, res);
+			evalAsync( expr, env, (err, _env, _, res) => { 
+				if (err) {
+					let _env = new Env (null, null, env);
+					_env.syncAndBind(_err, err);
+					evalAsync (onerror, _env, cb);
+				}
+				else cb(null, _env, null, res);
 			});
 		}
 		else if (_def.equal(xarray[0]) || _let.equal(xarray[0])) {
@@ -357,16 +363,20 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 			let expr = xarray[2];
 			
 			evalAsync( controlStream, env, (err, _env, _, cs) => {
-				let corefn = (updatefn) => {
-					cs.addcb((err, _env, _cb, val) => {
-						evalAsync( expr, env, (err, _env, _, val) => {
-							if (val !== null && val !== undefined)
-								updatefn (val);
+				if (typeof cs === 'object' && cs.__itype__ === 'stream') {
+					let corefn = (updatefn) => {
+						cs.addcb((err, _env, _cb, val) => {
+							evalAsync( expr, env, (err, _env, _, val) => {
+								if (val !== null && val !== undefined)
+									updatefn (val);
+							});
 						});
-					});
-				};
-				let stream = new Stream (corefn, env);
-				cb( err, env, null, stream);
+					};
+
+					let stream = new Stream (corefn, env);
+					cb( err, env, null, stream);
+				}
+				else cb ('_on expects a Stream, '+Cell.stringify(streamObj)+' is not a Stream');
 			});
 		}
 		else if (_pull.equal(xarray[0])) {
@@ -392,7 +402,9 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 		else if (_do.equal(xarray[0])) {
 			let stream = xarray[1];
 			evalAsync( stream, env, (err, _env, _, streamObj) => {
-				streamObj.addcb ((err) => { if(err) throw err;} );
+				if (typeof streamObj === 'object' && streamObj.__itype__ === 'stream')
+					streamObj.addcb ((err) => { if(err) throw err;} );
+				else cb ('_do expects a Stream, '+Cell.stringify(streamObj)+' is not a Stream');
 			});
 			cb( null, env, null, null);
 		}

@@ -114,7 +114,7 @@ _An USEFUL SIDE EFFECT: A reference symbol bound to a non-symbolic value is esse
 
 ##### Special Symbols
 
-There are 36 special symbols defined in Ironscript.
+There are 37 special symbols defined in Ironscript.
 
 **`_cons`**   |   **`_car`**    |   **`_cdr`**    |   **`_quote`**
 --------------|-----------------|-----------------|---------------
@@ -125,12 +125,13 @@ There are 36 special symbols defined in Ironscript.
 **`_filter`** |   **`_push`**   |   **`_pull`**   |   **`_pop`**
 **`_stream`** |   **`_do`**     |   **`_on`**     |   **`_include`**
 **`_import`** |   **`_self`**   |   **`_this`**   |   **`NIL`**
-**`_true`**   |   **`_false`**  |   **`_all`**    |
+**`_true`**   |   **`_false`**  |   **`_all`**    |   **`_err`**
 
 
 Among these **special symbol**s `_self`, `_this`, `_true`, `_false` and `NIL` have predefined values bound to them. 
 `_all` has contextual semantics in the `_import` special form. `(_import <filepath> _all)` imports all names defined 
-in the Ironscript module at filepath.
+in the Ironscript module at filepath.   
+`_err` is defined in the scope of the **catch** S-Expression in the `_try` special form.
 The other **special symbol**s are bound with **special form**s.
 
 **`_self`** always refers to the current **scope**.  
@@ -151,7 +152,7 @@ Lexical scoping is available through the `_begin` **special form**.
 **Scopes can be synced or unsynced.** A **synced scope** is a scope where symbols can be bound to values.
 When a scope is **unsynced** symbols can not be bound to values.
 
-Scopes are **unsynced by default**, only the *`_begin` special form creates scopes which are synced by default.*
+Scopes are **unsynced by default**, only the *`_begin` and `_coll` special form create scopes which are synced by default.*
 An unsynced scope can be synced for evaluation of a set of expressions using the `_sync` special form.
 
 
@@ -177,13 +178,27 @@ The grammar of this document section defines the syntactical structure of an S-E
 are the building blocks of S-Expressions.
 
 ##### Stream
-A stream is a container for a value which changes depending on zero or more streams and/or values.
-We can say that streams are containers for live values.
+A stream is a container for a value which may changes asynchronously depending on zero or more streams and/or values.
+We can say that streams are containers for live values. A stream contains the value, an **asynchronous core-function** to
+evaluate the value and a list of values **(dependencies list)** passed as arguments to the core-functions. When any of the values
+in the dependencies list changes, the core-function is called and a new value is evaluated.
+
+Based on the core-function, there are 2 types of streams. **Pure streams** and **Impure streams**.
+
+The **core function of a pure stream** is a **pure function**. A pure function is a function which has
+no side effects on the environment it's running on. The output of a pure function is identical for
+identical sets of inputs. In short pure functions are stateless. For example the `+` function in Ironscript 
+is a pure function whereas `_echo` is not a pure function. 
+
+**Impure streams** are simply **not pure streams**.
+
+
 
 ##### Collection
-A collection is a container of key-value pairs, collections are equivalent to Javascript Objects 
+A collection is a container of key-value pairs, **collections are equivalent to Javascript Objects** 
 which can hold values specific to Ironscript, like streams, and be passed to and used in Javascript code
 just like any other Javascript Object created with `Object.create(null)`.
+
 
 #### Sequence
 A sequence is a contained/wrapped Javascript Array. Though Ironscript is built around `_cons` based lists, sequences
@@ -443,7 +458,6 @@ If *x* is not (1) or (2) or (3) or (4) then it's not a valid LValue.
 
 The form **binds the symbols or references** in the LValue to the values in the RValue **in current scope**.
 The form binds symbols to values **only if the current scope is a synced scope**
-*(Know more about scopes in the Understanding Scope section)*
 
 **examples**
 
@@ -496,7 +510,6 @@ If *x* is **not** bound to a value in **current scope** then the form finds the 
 If *x* is bound to a value in the **current scope**, then its value is updated to the value of *y*.
 The form binds the value to *x*  **only if the scope where x is found is a synced scope**.
 
-*(Know more about scopes in the Understanding Scope section)*
 
 
 **example**
@@ -511,19 +524,19 @@ The form binds the value to *x*  **only if the scope where x is found is a synce
 
 ###  `_try`
 
-**form** : `(_try x y)`
+**form** : `(_try expr catch)`
 
-Where *x* and *y* are S-Expressions. If value of *x* is evaluated without any error then then value of the form
-is value of *x*, else the value of the form is value of *y*.
+Where *expr* and *catch* are S-Expressions. If value of *expr* is evaluated without any error then then value of the form
+is value of *x*, else the value of the form is value of *catch* evaluated in a scope where `_err` is bound to the error.
 
 **examples**
 
     (_try 
       (_let 1 1) 
-      (_echo "Can not bind a literal value to another literal value")
+      (_echo _err)
     ) 
     
-    ; the _echo expression is evaluated
+    ; prints the error "1 is not a valid LValue ..."
 
 
 
@@ -614,7 +627,6 @@ S-Expressions in the pattern and pass them to the body.
     ; S-Expressions and _self refers to current scope
 
     (_rho ( @a = @b ) (_let @a @b) )
-    
   
     ; using the rule
     (_self a = 5)                  ; a is bound to 5
@@ -625,7 +637,8 @@ S-Expressions in the pattern and pass them to the body.
     ; [ expr ] is the syntactical shorthand for (_self expr)
 
 
-
+**Following examples will use the `[ x = y ]` short-hand syntax defined here using `_rho` instead of `(_let x y)` 
+for the sake of simplicity and readability.**
 
 ----------------------------------
 
@@ -672,9 +685,468 @@ the S-Expressions one-by-one. The value of the form is the value of *exp_n*.
     )
 
 
+
+
+----------------------------------
+
+
+
+### `_coll`
+
+**form** : `(_coll exp_1 exp_2 ... exp_n)`
+
+Where *exp_1* ... *exp_n* are S-Expressions. The form evaluates the S-Expressions one-by-one in its own **synced scope**.
+The a new collection is created and bound to the `_this` special symbol in the scope. The value of the form is the 
+collection bound to `_this` after the S-Expressions *exp_1* ... *exp_n* have been evaluated.
+
+**examples**
+
+    [ numb = (_coll                          ; creates a collection numb 
+      [ _this.band = "Linkin Park" ]         ; numb is a song by Linkin Park
+      [ _this.album = "Meteora" ]            ; from the album Meteora
+      [ _this.artist = "Chester Bennington"] ; sung by Chester
+    ) ]
+
+
+    ; short-hand syntax for the same
+
+    [ numb = { 
+      [ (.band .album .artist) = ( "Linkin Park" "Meteora" "Chester Bennington") ]
+    } ]
+
+    (_echo numb.band)                        ; prints Linkin Park
+
+
+
+
+----------------------------------
+
+
+
+### `_seq`
+
+**form** : `(_seq  a_1  a_2 ...  a_n )`
+
+Where *a_1* ... *a_n* are S-Expressions. The value of the form is a Sequence (a wrapped Array) containing 
+values of *a_1* ... *a_n*.
+
+**examples**
+
+    (_echo (_seq 1 2 3 4) )               ; prints [ 1, 2, 3, 4 ]
+    (_echo (_seq 5 (+ 7 5) ) )            ; prints [ 5, 12 ]
+
+
+
+----------------------------------
+
+
+
+### `_map`
+
+**form** : `(_map sequence func)`
+
+Where *sequence* is a S-Expression whose value is a Sequence or an Array and *func* is a function 
+taking 2 arguments *( item, index )*. The value of the form is a Sequence or an Array **asynchronously
+mapped** from *sequence* using *func*.
+
+
+**examples**
+
+    (_echo (_map 
+      (_seq 1 2 3 4) 
+      (_fn (item index) (* item 2) ) 
+    ) )                                 ; prints [ 2, 4, 6, 8 ]
+    
+    
+    (_echo (_map 
+      (_seq 1 2 3) 
+      (_fn (item) (* item 2) )          ; note the function takes only one argument
+                                        ; 'item', because we do not need index here
+    ) )                                 ; prints [ 2, 4, 6]
+
+
+
+
+----------------------------------
+
+
+
+
+### `_filter`
+
+**form** : `(_filter sequence func)`
+
+Where *sequence* is a S-Expression whose value is a Sequence or an Array and *func* is a function 
+taking 2 arguments *( item, index )* and evaluating to `_true` or `_false`. 
+The value of the form is a Sequence or an Array **asynchronously filtered** from *sequence* using *func*.
+
+
+**examples**
+
+    (_echo (_filter 
+      (_seq 1 2 3 4) 
+      (_fn (item index) 
+        (=== 0 (% index 2) )            ; filter even indices
+      ) 
+    ) )                                 ; prints [ 1, 3 ]
+    
+    
+    (_echo (_filter 
+      (_seq 1 2 3 4) 
+      (_fn (item) 
+        (== 0 (%  item 2) )             ; filter even values
+      )                                 ; note the function takes only one argument
+                                        ; 'item', because we do not need index here
+    ) )                                 ; prints [ 2, 4 ]
+
+
+
+
+----------------------------------
+
+
+
+### `_stream`
+
+**form** : `(_stream func dep_1 dep_2 ... dep_n)`
+
+Where *func* is a function and *dep_1* ... *dep_n* are S-Expressions. The value of the form is a **stream** which contains 
+the value of `(func dep_1 ... dep_n)`. `func` is the core function of the stream here. When the value of any S-Expression 
+among *dep_1* ... *del_n* changes asynchronously the value of the stream is updated.
+
+_A **stream** is a container for a value that may change asynchronously depending on other streams and/or values._
+
+**examples**
+
+    [ seconds-stream = (_stream 
+        @{
+          // This is a block of native Javascript code enclosed 
+          // within @{ and }@
+          // This block of Javascript is a valid Atomic value in
+          // Ironscript. The value of this atom is an Ironscript
+          // function constructed from this block of code.
+          
+          let i = 0;
+
+          setInterval ( function () {
+            $yield (i++);
+          }, 1000 );            // yield an integer every second    
+        
+        }@ NIL )
+    ]
+    
+    ; Now seconds-stream is a stream containing a value which 
+    ; increments by one every second.
+    
+    ; stream-sqr defined below is a function that takes a stream as argument
+    ; and evaluates to another stream which contains the value of the square
+    ; of the contained value of arg-stream.
+
+    [ sqr = (_fn (x) (* x x) ) ]
+    [ stream-sqr = (_fn (arg-stream) (_stream sqr (arg-stream) ) ) ]
+
+
+
+
+
+----------------------------------
+
+
+
+
+### `_do`
+
+**form** : `(_do stream)`
+
+Where *stream* is an S-Expression whose value is a stream.   
+The form has **no value**, its **value is NIL**. This form is used to detach the execution of a
+stream (which is fully asynchronous because the value contained in the stream can change anytime) 
+from a synced execution environments of `_begin`, `_sync` and `_coll`.
+
+This is used to literally 'do' asynchronous stuff using Impure streams.
+
+**example**
+    
+    ; we shall use the seconds-stream defined in the previous example
+    ; to demonstrate the use of _do
+
+    (_begin
+      
+      ; define a function stream-echo that takes a stream as the argument
+      ; and evaluates to another stream which prints the value contained 
+      ; in the arg-stream whenever the value in arg-stream changes.
+
+      ; note that _echo is not a pure-function, _echo modifies the stdout
+      ; by printing to it. Therefore stream-echo evaluates to an Impure stream 
+
+      [ stream-echo = (_fn (arg-stream) (_stream _echo (arg-stream) ) ) ]
+
+      ; let's define a stream that will print the seconds-stream
+      [ echo-seconds-stream = (stream-echo seconds-stream) ]
+
+      ; now we want to execute stream-echo, but stream-echo will print
+      ; to stdout asynchronously once in a second and we are inside a
+      ; synced environment (we are inside a _begin form). So, we use _do.
+
+      (_do echo-seconds-stream)     ; prints 1 2 3 ... one value each second
+    )
+
+
+
+
+----------------------------------
+
+
+
+
+### `_on`
+
+**form** : `(_on stream expr)`
+
+Where *stream* is an S-Expression whose value is a stream and expr is an S-Expression. The value of this
+form is a stream containing a value evaluated from *expr* whenever the value contained in *stream* changes.
+
+**example**
+
+    (_begin
+      [ print-hello-stream = (_on sconds-stream (_echo "Hello World !") ) ]
+      (_do print-hello-stream)          ; prints hello world ! every second
+    )
+
+
+
+
+----------------------------------
+
+
+
+
+### `_pull`
+
+**form** : `(_pull container)`
+
+Where *container* is an S-Expression whose value is a **stream** or a **sequence**. In case of stream, the value of 
+this form is the current value of the stream. *(Note that the value of this form does not change when the value contained 
+in the stream changes)*. In case of sequence, it's equivalent to array.shift() in Javascript.
+
+
+**examples**
+
+    (_begin 
+      [ nums = (_seq 1 2 3 4) ]
+      (_echo (_pull nums) )             ; prints 1
+      (_echo nums)                      ; prints [2, 3, 4]
+      
+      (_do (_on seconds-stream 
+        (_echo (_pull seconds-stream) )
+      ) )                               ; prints 1 2 3 ... per second
+    )
+
+
+
+----------------------------------
+
+
+
+### `_push`
+
+**form** : `(_push container expr)`
+
+Where *container* is an S-Expression whose value is a **stream** or a **sequence** and *expr* is an S-Expression.
+If value of *container* is a stream then its contained value is updated to the value of *expr*. If value of *container*
+is a sequence, then value of *expr* is pushed to the end of the sequence (equivalent to array.push(val) in Javascript).
+
+Value of this form is the value of *expr*.
+
+**examples**
+    
+    (_begin
+      [ nums = (_seq 1 2 3) ]
+      (_push nums 4)
+      (_echo nums)                      ; prints [1, 2, 3, 4]
+
+      [ nop = (_fn () NIL) ]            ; nop is a function that does nothing
+      [ myport = (_stream nop NIL) ]    ; myport is a stream with nop core function
+      
+      (_do (_on myport 
+        (_echo (_pull myport) )         ; when value of myport changes, print it
+      ) )
+
+      (_push myport "Hello")            ; prints "Hello"
+      (_push myport "World")            ; prints "World"
+
+    )
+
+
+
+
+---------------------------------
+
+
+
+### `_pop`
+
+**form** : `(_pop sequence)`
+
+Where sequence is an S-Expression whose value is a sequence. It's equivalent to array.pop() in Javascript.
+
+**examples**
+
+    (_begin 
+      [ nums = (_seq 1 2 3 4) ]
+      (_echo (_pop nums) )        ; prints 4
+      (_echo nums)                ; print [1, 2, 3]
+    )
+
+
+
+
+
+--------------------------------------
+
+
+
+
+### `_import`
+
+**form** : `(_import file names)`
+
+Where *file* is a string representing the path to the Ironscript file to be imported and *names* is a list of 
+symbols to be imported from the file. *names* is optional. If `_all` is passed in place of *names* all symbols
+defined in the root scope of the file are imported.
+
+The value of this form is the root scope of the imported file.
+
+
+**examples**
+
+    ------- file : greet.is --------
+
+    (_sync
+      ; define a function good-evening
+      [ good-evening = (_fn (name) 
+        (concat "Good evening " name " !") 
+      ) ]
+
+      ; define a function good-morning
+      [ good-morning = (_fn (name) 
+        (concat "Good morning " name " !") 
+      ) ]
+    )
+
+
+    ------- file : main.is --------
+
+    (_begin
+      ; importing greet.is, various ways
+
+      ; 1. 
+      [ greet = (_import "./greet.is") ]
+      (_echo (greet.good-morning "Alice") )       ; prints "Good morning Alice !"
+
+
+      ; 2.
+      (_import "./greet.is" (good-morning) )
+      (_echo (good-morining "Bob") )              ; prints "Good morning Bob !"
+
+      ; 3.
+      (_import "./greet.is" _all)
+      (_echo (good-evening "Eve") )               ; prints "Good evening Eve !"
+    )
+
+
+
+
+------------------------------------------
+
+
+
+### `_include`
+
+**form** : `(_include file)`
+
+Where *file* is a string representing the path to the file to be included. The content of the file is read and
+evaluated in the current scope. The value of this form is the root scope of the included file.
+
+**examples**
+    
+    (_begin
+      (_include "stdlib")     ; includes stdlib
+      (_echo (+ 2 3) )        ; prints 5
+    )
+
+
+
+----------------------------------------------
+
+
+
+### Using Javscript inside Ironscript
+
+		
 Internally Ironscript functions are asynchronous javascript functions invoked by the asynchronous 
-**list evaluator** when needed. This **list evaluator** takes a `_cons` list or an atomic value, 
-a scope and a callback as input, evaluates the list according to the Ironscript specifications using 
-the scope provided and passes the result to the callback. The callback to this evaluator acts as the
-Common Asynchronous Interface between native Javascript code, user written Javascript code and `_cons`
-based Ironscript lists (S-Expressions). 
+**evaluator** when needed. Hence, we should be able to write asynchronous Javascript functions and use 
+them in Ironscript. In fact we are able to do that in a number of ways. We have a syntactical way of
+using JS inside Ironscript through the `@{ ...JS code... }@` blocks or **JS Blocks**. In a multi-file 
+project the JS dependecies can be specified in the `iron.config.json` file. We can also take a synchronous
+JS function returned by any Ironscript form/function or Javascript function and put an asynchronous wrapper
+around it through the `_fx` function provided in Ironscript. In this section, we will concentrate solely on 
+the **JS Blocks**.
+
+
+#### JS Blocks
+
+JS Blocks are blocks of Javascript code enclosed in @{ and }@ inside an Ironscript source. These blocks
+construct asynchronous Javascript functions that can be used like any other Ironscript functions written in
+Ironscript. These blocks have a nice little API to write async functions in a synchronous looking way.
+
+##### The JS Blocks API
+
+The code inside JS Blocks is a single Javascript function that has access to 4 functions `$return`, `$throw`,
+`$catch`, `$yield`, the current scope through `$scope` object and the `args` array.
+
+
+**`$return`** is the function to return a value to the **Ironscript evaluator** asynchronously.
+**`$yield`** is the function to yield a value to the **evaluator**, `$yield` is used in writing core functions
+of streams in Javascript. **`$throw`** functions throws its argument as an error to the evaluator, 
+**`$catch`** function is used to catch errors thrown by the evaluator when the function is run to handle an error.
+
+**`$scope`** object provides two useful methods to store and retrieve key, value pairs in the current scope.
+`$scope.defc (key, value)` stores the key, value pair in the scope to be used by other Javascript code running 
+in the same scope. `$scope.getc (key)` retrieves the value associated with the key.
+
+
+##### Example
+
+		(_begin
+		 	[ sum = @{
+			 						let s = 0;
+									for (let x of args) s += x;
+									$return (s);
+							}@
+			]
+			
+			(_echo (sum 1 2 3 4) ) 					; prints 10
+		)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -5225,7 +5225,9 @@ var _fr = new IronSymbol('_fr');
 var _begin$1 = new IronSymbol('_begin');
 var _sync$1 = new IronSymbol('_sync');
 var _rho = new IronSymbol('_rho');
+
 var _try = new IronSymbol('_try');
+var _err = new IronSymbol('_err');
 
 var _self = new IronSymbol('_self');
 var _this = new IronSymbol('_this');
@@ -5423,8 +5425,12 @@ function evalAsync(x, env) {
 			(function () {
 				var expr = xarray[1];
 				var onerror = xarray[2];
-				evalAsync(expr, env, function (err, env, _, res) {
-					if (err) evalAsync(onerror, env, cb);else cb(null, env, null, res);
+				evalAsync(expr, env, function (err, _env, _, res) {
+					if (err) {
+						var _env2 = new Env(null, null, env);
+						_env2.syncAndBind(_err, err);
+						evalAsync(onerror, _env2, cb);
+					} else cb(null, _env, null, res);
 				});
 			})();
 		} else if (_def.equal(xarray[0]) || _let.equal(xarray[0])) {
@@ -5542,15 +5548,18 @@ function evalAsync(x, env) {
 				var expr = xarray[2];
 
 				evalAsync(controlStream, env, function (err, _env, _, cs) {
-					var corefn = function corefn(updatefn) {
-						cs.addcb(function (err, _env, _cb, val) {
-							evalAsync(expr, env, function (err, _env, _, val) {
-								if (val !== null && val !== undefined) updatefn(val);
+					if ((typeof cs === 'undefined' ? 'undefined' : _typeof(cs)) === 'object' && cs.__itype__ === 'stream') {
+						var corefn = function corefn(updatefn) {
+							cs.addcb(function (err, _env, _cb, val) {
+								evalAsync(expr, env, function (err, _env, _, val) {
+									if (val !== null && val !== undefined) updatefn(val);
+								});
 							});
-						});
-					};
-					var stream = new Stream(corefn, env);
-					cb(err, env, null, stream);
+						};
+
+						var stream = new Stream(corefn, env);
+						cb(err, env, null, stream);
+					} else cb('_on expects a Stream, ' + Cell.stringify(streamObj) + ' is not a Stream');
 				});
 			})();
 		} else if (_pull.equal(xarray[0])) {
@@ -5566,9 +5575,9 @@ function evalAsync(x, env) {
 		} else if (_do.equal(xarray[0])) {
 			var _stream2 = xarray[1];
 			evalAsync(_stream2, env, function (err, _env, _, streamObj) {
-				streamObj.addcb(function (err) {
+				if ((typeof streamObj === 'undefined' ? 'undefined' : _typeof(streamObj)) === 'object' && streamObj.__itype__ === 'stream') streamObj.addcb(function (err) {
 					if (err) throw err;
-				});
+				});else cb('_do expects a Stream, ' + Cell.stringify(streamObj) + ' is not a Stream');
 			});
 			cb(null, env, null, null);
 		} else if (_include$1.equal(xarray[0])) {
@@ -5602,8 +5611,8 @@ function evalAsync(x, env) {
 				} else if (func instanceof Object && func.__itype__ === 'specialform') {
 					func = func.func;
 					var _args = xarray.slice(1);
-					var _env2 = new Env(null, null, env);
-					func.apply(undefined, [null, _env2, cb].concat(toConsumableArray(_args)));
+					var _env3 = new Env(null, null, env);
+					func.apply(undefined, [null, _env3, cb].concat(toConsumableArray(_args)));
 				} else if (func instanceof Function) {
 					var _args2 = xarray.slice(1);
 					var _evalArg = function _evalArg(arg, _cb) {
