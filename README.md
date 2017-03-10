@@ -1083,7 +1083,7 @@ evaluated in the current scope. The value of this form is the root scope of the 
 
 ### Using Javscript inside Ironscript
 
-		
+    
 Internally Ironscript functions are asynchronous javascript functions invoked by the asynchronous 
 **evaluator** when needed. Hence, we should be able to write asynchronous Javascript functions and use 
 them in Ironscript. In fact we are able to do that in a number of ways. We have a syntactical way of
@@ -1118,16 +1118,16 @@ in the same scope. `$scope.getc (key)` retrieves the value associated with the k
 
 ##### Example
 
-		(_begin
-		 	[ sum = @{
-			 						let s = 0;
-									for (let x of args) s += x;
-									$return (s);
-							}@
-			]
-			
-			(_echo (sum 1 2 3 4) ) 					; prints 10
-		)
+    (_begin
+      [ sum = @{
+                  let s = 0;
+                  for (let x of args) s += x;
+                  $return (s);
+              }@
+      ]
+      
+      (_echo (sum 1 2 3 4) )          ; prints 10
+    )
 
 
 
