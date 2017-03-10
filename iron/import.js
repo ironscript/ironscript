@@ -46,21 +46,15 @@ export function importfn (env) {
     let sourceDir = null;
     let _all = new IronSymbol('_all');
 
-    //console.log(_env);
-    
     if (!sourcename.endsWith('.is')) sourceDir = join(__include_dir__, dirname(sourcename));
     else sourceDir = join(basedir, dirname(sourcename));
     let filename = join(sourceDir, basename(sourcename));
-    //console.log('debug: '+filename);
 
-    //console.log(namesList);
     if (imported.has(filename)) {
       let importEnv = imported.get(filename);
       if (namesList) {
-        //console.log('\t\t\t\tDebug (1): \t\t',namesList instanceof Cell);
         if (namesList instanceof Cell) {
           while (namesList instanceof Cell) {
-            //console.log('\t\t\t\tDebug: \t\t',importEnv.get(namesList.car));
             _env.syncAndBind(namesList.car, importEnv.get(namesList.car));
             namesList = namesList.cdr;
           }
@@ -78,11 +72,9 @@ export function importfn (env) {
           imported.set (filename, importEnv);
           _env.defc('__base_dir__', basedir);
           if (namesList) {
-            //console.log('\t\t\t\tDebug (2): \t\t',namesList instanceof Cell);
             if (namesList instanceof Cell) {
               while (namesList instanceof Cell) {
 
-                //console.log('\t\t\t\tDebug: \t\t',importEnv.get(namesList.car));
                 _env.syncAndBind(namesList.car, importEnv.get(namesList.car));
                 namesList = namesList.cdr;
               }
@@ -111,14 +103,11 @@ export function includefn (env) {
 
     let sourceDir = null;
     
-    //console.log('__debug__: '+dirname(sourcename));
     if (!sourcename.endsWith('.is')) sourceDir = join(__include_dir__, dirname(sourcename));
     else sourceDir = join(basedir, dirname(sourcename));
-    //console.log('__debug__: ', sourceDir);
     _env.defc('__base_dir__', sourceDir);
     let filename = join(sourceDir, basename(sourcename));
     
-    //console.log('debug: '+filename);
     if (included.has(filename)) { 
       src = included.get(filename);
       let p = new Parser({name: sourcename, buffer: src});
@@ -130,7 +119,6 @@ export function includefn (env) {
     else {
       nextTick (readsource, err, _env, (err, __env, _cb, src) => {
         included.set(filename, src);
-        //console.log(filename, '\n\n', src);
         let p = new Parser({name: sourcename, buffer: src});
         nextTick (evalAsync, p.parse(), _env, (err, _env, _cb, val) => {
           _env.defc('__base_dir__', basedir);

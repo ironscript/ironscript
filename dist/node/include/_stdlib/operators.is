@@ -6,24 +6,70 @@
 
 _sync
   
-  (_def + @{ $return (args[0]+args[1]); }@ )
-  (_def - @{ $return (args[0]-args[1]); }@ )
-  (_def * @{ $return (args[0]*args[1]); }@ )
-  (_def / @{ $return (args[0]/args[1]); }@ )
-  (_def % @{ $return (args[0]%args[1]); }@ )
-  
-  (_def == @{ $return (args[0]==args[1]); }@ )
-  (_def != @{ $return (args[0]!=args[1]); }@ )
-  (_def === @{ $return (args[0]===args[1]); }@ )
-  (_def !== @{ $return (args[0]!==args[1]); }@ )
+  (_def + @{ 
+		try { $return (args[0]+args[1]); }
+		catch (e) { $throw (e); }
+	}@ )
+  (_def - @{ 
+		try { $return (args[0]-args[1]); }
+		catch (e) { $throw (e); }
+	}@ )
+  (_def * @{ 
+		try { $return (args[0]*args[1]); }
+		catch (e) { $throw (e); }
+	}@ )
+  (_def / @{ 
+		try { $return (args[0]/args[1]); }
+		catch (e) { $throw (e); }
+	}@ )
+  (_def % @{ 
+		try { $return (args[0]%args[1]); }
+		catch (e) { $throw (e); }
+	}@ )
 
-  (_def > @{ $return (args[0]>args[1]); }@ )
-  (_def < @{ $return (args[0]<args[1]); }@ )
-  (_def >= @{ $return (args[0]>=args[1]); }@ )
-  (_def <= @{ $return (args[0]<=args[1]); }@ )
 
-  (_def && @{ $return (args[0]&&args[1]); }@ )
-  (_def || @{ $return (args[0]||args[1]); }@ )
+  (_def == @{ 
+		try { $return (args[0]==args[1]); }
+		catch (e) { $throw (e); }
+	}@ )
+  (_def != @{ 
+		try { $return (args[0]!=args[1]); }
+		catch (e) { $throw (e); }
+	}@ )
+  (_def === @{ 
+		try { $return (args[0]===args[1]); }
+		catch (e) { $throw (e); }
+	}@ )
+  (_def !== @{ 
+		try { $return (args[0]!==args[1]); }
+		catch (e) { $throw (e); }
+	}@ )
+
+
+  (_def > @{ 
+		try { $return (args[0]>args[1]); }
+		catch (e) { $throw (e); }
+	}@ )
+  (_def < @{ 
+		try { $return (args[0]<args[1]); }
+		catch (e) { $throw (e); }
+	}@ )
+  (_def >= @{ 
+		try { $return (args[0]>=args[1]); }
+		catch (e) { $throw (e); }
+	}@ )
+  (_def <= @{ 
+		try { $return (args[0]<=args[1]); }
+		catch (e) { $throw (e); }
+	}@ )
+  (_def && @{ 
+		try { $return (args[0]&&args[1]); }
+		catch (e) { $throw (e); }
+	}@ )
+  (_def || @{ 
+		try { $return (args[0]||args[1]); }
+		catch (e) { $throw (e); }
+	}@ )
 
   (_def concat @{ 
     let s = '';
@@ -31,21 +77,21 @@ _sync
     $return (s);
    }@ )
 
-  (_rho '(@a + @b) (+ @a @b))
-  (_rho '(@a - @b) (- @a @b))
-  (_rho '(@a * @b) (* @a @b))
-  (_rho '(@a / @b) (/ @a @b))
-  (_rho '(@a % @b) (% @a @b))
+  (_rho (@a + @b) (+ @a @b))
+  (_rho (@a - @b) (- @a @b))
+  (_rho (@a * @b) (* @a @b))
+  (_rho (@a / @b) (/ @a @b))
+  (_rho (@a % @b) (% @a @b))
 
-  (_rho '(@a == @b) (== @a @b))
-  (_rho '(@a != @b) (!= @a @b))
-  (_rho '(@a === @b) (=== @a @b))
-  (_rho '(@a !== @b) (!== @a @b))
+  (_rho (@a == @b) (== @a @b))
+  (_rho (@a != @b) (!= @a @b))
+  (_rho (@a === @b) (=== @a @b))
+  (_rho (@a !== @b) (!== @a @b))
   
-  (_rho '(@a > @b) (> @a @b))
-  (_rho '(@a < @b) (< @a @b))
-  (_rho '(@a >= @b) (>= @a @b))
-  (_rho '(@a <= @b) (<= @a @b))
+  (_rho (@a > @b) (> @a @b))
+  (_rho (@a < @b) (< @a @b))
+  (_rho (@a >= @b) (>= @a @b))
+  (_rho (@a <= @b) (<= @a @b))
   
-  (_rho '(@a && @b) (&& @a @b))
-  (_rho '(@a || @b) (|| @a @b))
+  (_rho (@a && @b) (&& @a @b))
+  (_rho (@a || @b) (|| @a @b))

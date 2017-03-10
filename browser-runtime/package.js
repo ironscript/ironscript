@@ -32,6 +32,7 @@ export default class Package {
   }
 
   run () {
+    //console.log("Running ", this.main);
     this.runtime.run(this.main);
   }
 }

@@ -35,9 +35,15 @@ export default class Stream {
     this.callbacks = [];
     this.addcb = (cb) => { this.callbacks.push(cb); }
 
+    this.push = (val) => {
+      this.value = val;
+      if (val !== null && val !== undefined) for (let cb of this.callbacks)
+        nextTick (cb, null, this.env, null, val);
+    }
+
     nextTick (this.core, (val) => {
       this.value = val;
-      for (let cb of this.callbacks) 
+      if (val !== null && val !== undefined) for (let cb of this.callbacks) 
         nextTick (cb, null, this.env, null, val);
     });
   }

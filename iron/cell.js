@@ -26,6 +26,7 @@ export default class Cell {
   constructor (val) {
     this.car = val;
     this.cdr = null;
+    this.ctx = null;
   }
 
 
@@ -55,14 +56,22 @@ export default class Cell {
 
   static printList (cell) {
     let str = '( ';
-    while (cell.cdr != null) {
+    while (cell.cdr instanceof Cell) {
       str += Cell.printAtom (cell.car);
       str += " ";
       cell = cell.cdr;
     }
     str += Cell.printAtom (cell.car);
+		if (cell.cdr !== null) str += ' : ' + Cell.printAtom(cell.cdr);
     str += ' ) ';
     return str;
+  }
+
+  static stringify (cell) {
+    if (cell instanceof Cell) return Cell.printList(cell);
+    else if (cell instanceof Object && cell.type === "ironsymbol") 
+      return cell.symbol;
+    else return JSON.stringify(cell);
   }
 
   static printAtom (cell) {

@@ -40,7 +40,7 @@ export default class Lexer {
   }
 
   static isOp (ch) {
-    return /[\(\)\[\]\']/g.test(ch);
+    return /[\(\)\{\}\[\]\':]/g.test(ch);
   }
 
   readString () {
@@ -137,7 +137,19 @@ export default class Lexer {
     }
     else {
       let t = this.readSymbol(eps);
-      if (isNaN(Number(t.symbol))) return t;
+      if (isNaN(Number(t.symbol))) {
+        let arr = t.symbol.split('.');
+        if (arr.length === 1) return t;
+        
+        if (arr[0] === '') arr[0] = new IronSymbol('_this');
+        else arr[0] = new IronSymbol(arr[0]);
+        let ret = []; 
+        for (let x of arr) {
+          if (isNaN(Number(x))) ret.push(x);
+          else ret.push(Number(x))
+        }
+        return ret;
+      }
       else return Number(t.symbol);
     }
   }
