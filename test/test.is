@@ -146,7 +146,7 @@ _begin
 
 
 
-  (_echo (_try (_def 1 1) "caught the error") )
+  (_echo (_try (_def 1 1) (concat "caught error : " _err) ) )
   
 
 	(_def variadic (_fn (a : b) b ) )
