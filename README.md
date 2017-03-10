@@ -14,6 +14,12 @@ running on browsers.
 
 Why, indeed ?
 
+**tl;dr; Why walk through the dangers of the _callback hell_ , when you can _functional_ ?
+Write _functional_ like LISP and/or write JS inside it, Ironscript will do it asynchronously.
+Say bye to writing logic(?) using callbacks.**
+
+
+
 Before expolring the reasons of the *why*, I would prefer to mention that I am an individual
 programmer and development of this *language* began as one of my "what-if" ideas, and that the 
 initial design of this language is driven by the necessities of an individual developer, i.e. me.
@@ -165,7 +171,7 @@ There are 27 special forms defined in Ironscript.
 
 ##### Cell
 A cell is a **cons cell** or a **dotted pair**. [Read here](https://en.wikipedia.org/wiki/Cons) for more info.
-In Ironscript instead of **dotted pair**s are written as `(a : b)` instead of `(a . b)` and `:` is called the
+In Ironscript **dotted pair**s are written as `(a : b)` instead of `(a . b)` and `:` is called the
 **construct operator**.
 
 A cell has 2 fields, the **car** field and the **cdr** field. For people acquainted with the concept of singly
