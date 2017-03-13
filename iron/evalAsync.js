@@ -98,6 +98,11 @@ export const defaultCallback = (err, env) => {
   }
 };
 
+export const endOfExecution = (err) => {
+	if (!err) console.timeEnd("Runtime");
+	else throw err;
+}
+
 export function cellToArr (cell, arr, env, cb) {
 	while (cell instanceof Cell) {
 		arr.push (cell.car);
@@ -118,7 +123,7 @@ export function cellToArr (cell, arr, env, cb) {
 
 
 
-export default function evalAsync (x, env, cb=defaultCallback ) {
+export default function evalAsync (x, env, cb=endOfExecution ) {
   if (x instanceof IronSymbol) {
     if (_self.equal(x)) cb (null, env, null, env);
     else if (_this.equal(x)) cb( null, env, null, env.collection);

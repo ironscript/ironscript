@@ -45,6 +45,7 @@ export function _eval_unsafe (err, env, cb, src, name) {
 
 export function interpretSync (src, name, env) {
   if (!name) name = 'unnamed';
+	console.time("Runtime");
   let p = new Parser ({name: name, buffer: src});
   nextTick (evalAsync, p.parse(), env);
 }

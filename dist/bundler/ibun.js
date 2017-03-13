@@ -5252,11 +5252,10 @@ var _on = new IronSymbol('_on');
 var _include$1 = new IronSymbol('_include');
 var _import$1 = new IronSymbol('_import');
 
-var defaultCallback = function defaultCallback(err, env) {
-	if (err) {
-		if (err instanceof IError) err.log();
-		throw err;
-	}
+
+
+var endOfExecution = function endOfExecution(err) {
+	if (!err) console.timeEnd("Runtime");else throw err;
 };
 
 function cellToArr(cell, arr, env, cb) {
@@ -5275,7 +5274,7 @@ function cellToArr(cell, arr, env, cb) {
 }
 
 function evalAsync(x, env) {
-	var cb = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : defaultCallback;
+	var cb = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : endOfExecution;
 
 	if (x instanceof IronSymbol) {
 		if (_self.equal(x)) cb(null, env, null, env);else if (_this.equal(x)) cb(null, env, null, env.collection);else if (_null_.equal(x)) cb(null, env, null, null);else if (_true_.equal(x)) cb(null, env, null, true);else if (_false_.equal(x)) cb(null, env, null, false);else env.getAsync(x, cb);
@@ -6115,6 +6114,7 @@ function _eval_unsafe(err, env, cb, src, name) {
 
 function interpretSync(src, name, env) {
   if (!name) name = 'unnamed';
+  console.time("Runtime");
   var p = new Parser({ name: name, buffer: src });
   nextTick(evalAsync, p.parse(), env);
 }
