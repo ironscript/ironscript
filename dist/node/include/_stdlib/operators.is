@@ -77,21 +77,3 @@ _sync
     $return (s);
    }@ )
 
-  (_rho (@a + @b) (+ @a @b))
-  (_rho (@a - @b) (- @a @b))
-  (_rho (@a * @b) (* @a @b))
-  (_rho (@a / @b) (/ @a @b))
-  (_rho (@a % @b) (% @a @b))
-
-  (_rho (@a == @b) (== @a @b))
-  (_rho (@a != @b) (!= @a @b))
-  (_rho (@a === @b) (=== @a @b))
-  (_rho (@a !== @b) (!== @a @b))
-  
-  (_rho (@a > @b) (> @a @b))
-  (_rho (@a < @b) (< @a @b))
-  (_rho (@a >= @b) (>= @a @b))
-  (_rho (@a <= @b) (<= @a @b))
-  
-  (_rho (@a && @b) (&& @a @b))
-  (_rho (@a || @b) (|| @a @b))

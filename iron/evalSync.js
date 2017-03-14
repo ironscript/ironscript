@@ -103,16 +103,19 @@ export const endOfExecution = (err) => {
 	else throw err;
 }
 
-export function cellToArr (cell, arr, env, cb) {
+export function cellToArrSync (cell, arr, env) {
 	while (cell instanceof Cell) {
 		arr.push (cell.car);
 		cell = cell.cdr;
 	}
 	if (cell !== null) {
+		let val = evalSync (cell, env);
+		if (val instanceof Cell) return cellToArrSync (val, arr, env);
+		else return arr;
 		nextTick (evalAsync, cell, env, (err, _env, _, val) => {
 			if (val instanceof Cell) cellToArr (val, arr, env, cb);
 			else {
-				//arr.push (val);
+				arr.push (val);
 				cb (err, env, null, arr);
 			}
 		});

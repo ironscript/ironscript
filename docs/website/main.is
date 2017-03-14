@@ -1,0 +1,95 @@
+_begin
+  (_include "./vdom.is")
+
+
+  (_def COMPONENTS.message-input (_fn (props) 
+    (_begin
+      (_def clickport (PORT))
+      (_def keyport (PORT))
+      (_def submitport (PORT))
+      (_def render 
+        (h ".message-input" {} (_seq
+          (h "textarea" 
+            {
+              (_def .placeholder "type here")
+              (_def .onkeyup keyport)
+              (_def .id (concat props.id ".textarea") )
+            }
+          )
+          (h "button"
+            {
+              (_def .onclick clickport)
+            }
+            (_seq "Send")
+          )
+        ) )
+      )
+
+      (_def reset-value @{
+        var $el = document.getElementById (args[0]);
+        var val = $el.value;
+        $el.value = "";
+        if (val !== "") $return (val);
+        else $return (null);
+      }@ )
+      
+      (_do (_on clickport (_push submitport 1) ) )
+      (_do (_on keyport (_begin (_def e (_pull keyport)) (_if (=== e.key "Enter") (_push submitport 1) NIL ) ) ) )
+      (_do (_on submitport (_push props.message-port (reset-value (concat props.id ".textarea") ) ) ) )
+      
+      render
+    )
+  ) )
+
+
+
+
+  (_def COMPONENTS.message-list (_fn (props)
+    (_begin
+      (_def id (concat props.id ".list") )
+      (_def render (h "ul" { (_def .id id) } (_map props.messages (_fn (msg) (h "li" {} (_seq msg) ) ) ) ) )
+      
+      (_def add-new-message (_fn (msg) 
+        (_begin
+          (update id (h "li" {} (_seq msg) ) )
+          (_push props.messages msg)
+        )
+      ) )
+      (_do (_on props.new-message (add-new-message (_pull props.new-message) ) ) )
+      
+      render
+    )
+  ) )
+
+
+
+  (_def COMPONENTS.message-widget (_fn (props)
+    (_begin
+      (_def new-message-stream (PORT) )
+      (_def render 
+        (h "div" {} (_seq
+          (h "message-list" 
+            {
+              (_def .id (concat props.id ".message-list") )
+              (_def .messages (_seq "Welcome !") )
+              (_def .new-message new-message-stream)
+            }
+          )
+          (h "message-input"
+            {
+              (_def .id (concat props.id ".message-input") )
+              (_def .message-port new-message-stream)
+            }
+          )
+        ) )
+      )
+      
+      render
+    )
+  ) )
+
+  (_def COMPONENTS.
+
+  (update "app-root" (h "message-widget" { (_def .id "main") } ) )
+
+    

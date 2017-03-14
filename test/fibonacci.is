@@ -8,4 +8,11 @@
 		)
 	) )
 	(_echo (fib 15) )
+
+	(_let pass (_fn () NIL) )
+
+	(_let fib-machine (_stream pass NIL) )
+	(_let fibs (_seq 0 1) )
+	(_let push-fib-stream 
+	(_do (_on fib-machine 
 )

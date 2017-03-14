@@ -1,0 +1,31 @@
+; easy-syntax rewriting
+(_sync
+	
+	; easy maths
+
+  (_rho (@a + @b) (+ @a @b))
+  (_rho (@a - @b) (- @a @b))
+  (_rho (@a * @b) (* @a @b))
+  (_rho (@a / @b) (/ @a @b))
+  (_rho (@a % @b) (% @a @b))
+
+  (_rho (@a == @b) (== @a @b))
+  (_rho (@a != @b) (!= @a @b))
+  (_rho (@a === @b) (=== @a @b))
+  (_rho (@a !== @b) (!== @a @b))
+  
+  (_rho (@a > @b) (> @a @b))
+  (_rho (@a < @b) (< @a @b))
+  (_rho (@a >= @b) (>= @a @b))
+  (_rho (@a <= @b) (<= @a @b))
+  
+  (_rho (@a && @b) (&& @a @b))
+  (_rho (@a || @b) (|| @a @b))
+
+	
+	; easy constructs
+
+	(_rho (@a = @b) (_let @a @b))
+	(_rho (if @a then @b else @c) (_if @a @b @c))
+	
+)

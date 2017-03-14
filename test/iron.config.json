@@ -1,5 +1,5 @@
 {
-  "main": "./fibonacci.is",
+  "main": "./test.is",
   "imports": [
       {
         "name": "vdom",
