@@ -1,47 +1,8 @@
-/**
- * Copyright (c) 2016 Ganesh Prasad Sahoo (GnsP)
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy 
- * of this software and associated documentation files (the "Software"), to deal 
- * in the Software without restriction, including without limitation the rights 
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
- * copies of the Software, and to permit persons to whom the Software is 
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in 
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
- * SOFTWARE.
- *
- */
-
-
 import Cell from './cell.js';
-import Env from './env.js';
-import Stream from './stream.js';
-import {fn} from './higher.js';
 import IronSymbol from './symbol.js';
 import IError from './errors.js';
-import {nextTick, mapLimit, whilst, filterLimit} from 'async-es';
 
-
-import {Reference, Collection, Sequence} from './collection.js';
-
-import def from './specialforms/def.js';
-
-import egg from './egg.js';
-
-// changes from version to version, contextual usage only. 
-// (_import _egg) does some funny shit
 const _egg = new IronSymbol('_egg');
-
-
 
 const _cons = new IronSymbol ('_cons');
 const _car = new IronSymbol ('_car');
@@ -112,6 +73,9 @@ export function cellToArrSync (cell, arr, env) {
 		let val = evalSync (cell, env);
 		if (val instanceof Cell) return cellToArrSync (val, arr, env);
 		else return arr;
+	}
+	return arr;
+}
 		nextTick (evalAsync, cell, env, (err, _env, _, val) => {
 			if (val instanceof Cell) cellToArr (val, arr, env, cb);
 			else {

@@ -1,6 +1,5 @@
 _begin
-  (_include "./vdom.is")
-
+  (_import "./vdom.is" _all)
 
   (_def COMPONENTS.message-input (_fn (props) 
     (_begin
@@ -88,7 +87,6 @@ _begin
     )
   ) )
 
-  (_def COMPONENTS.
 
   (update "app-root" (h "message-widget" { (_def .id "main") } ) )
 

@@ -1,0 +1,135 @@
+_module "Main"
+	(_use "./vdom.is")
+	(_include "./http.is")
+  (_include "stdlib")
+	
+	[defun COMPONENTS.app (props)
+		[T "body"
+			[T "Header"]
+			[T "Hero"]
+			[T "HomepageMain"]
+			[T "Footer"]
+		]
+	] 
+
+	[defun COMPONENTS.Header (props)
+		(_begin
+			[render = 
+		
+				[T "nav.nav.is-dark.has-shadow#navbar"
+					[T ".container"
+						[T ".nav-left"
+							[T "a.nav-item"
+								[H "img" { 
+									[.src = "./assets/logo.png"] 
+									[.alt = "Ironscript"]
+								}]
+							]
+						]
+
+						[T "span.nav-toggle" 
+								[T "span"] 
+								[T "span"] 
+								[T "span"]
+						]
+
+						[T ".nav-right.nav-menu"
+							[T "a.nav-item.is-tab" [T "span.icon.margin-10" [T "i.fa.fa-home"]] "Home"]
+							[T "a.nav-item.is-tab" [T "span.icon.margin-10" [T "i.fa.fa-rocket"]] "Get Started"]
+							[T "a.nav-item.is-tab" [T "span.icon.margin-10" [T "i.fa.fa-hashtag"]] "Documentation"]
+							[T "a.nav-item.is-tab" [T "span.icon.margin-10" [T "i.fa.fa-heart"]] "Examples"]
+							[T "a.nav-item.is-tab" [T "span.icon.margin-10" [T "i.fa.fa-github"]] "Github"]
+						]
+					]
+				]
+			]
+			(_echo render)
+			render
+		)
+	]
+
+	[defun COMPONENTS.Hero (props)
+		[T "section.hero.is-warning.is-bold" [T ".hero-body" [T ".container"
+			[T "h1.title.is-2.is-spaced" "Ironscript 1.2.2" [T "sup" "Beta"]]
+			[T "h2.subtitle.is-4" "Easy LISPing for Rapid App Development"]
+			[T "a.button.is-outlined.is-large.is-inverted.is-warning.margin-10" "Try Online"]
+			[T "a.button.is-outlined.is-large.is-inverted.is-warning" "Examples"]
+		] ] ]
+	]
+
+
+	[defun COMPONENTS.Footer (props) (_begin
+		[render = 
+			[T "footer.footer" [T ".container" [T ".content.has-text-centered"
+				[T "p" 
+					[T "strong" "Ironscript"] " by " [H "a" {[.href = "https://gnsp.github.io" ]} "Ganesh Prasad (GnsP)"]
+					". The code is licensed " [H "a" {[.href = "http://opensource.org/licenses/mit-license.php"]} "MIT"] "."
+				]
+				[T "p" [H "a.icon" {[.href = "https://github.com/ironscript"]} [T "i.fa.fa-github"] ] ]
+			] ] ]
+		]
+		(_echo render)
+		render
+	) ]
+	
+	[defun content-stream (url) (_stream ajax-get-file url)]
+
+	[defun COMPONENTS.HomepageMain (props) (_begin
+		[render = 
+			[T "section.section" [T ".container"
+				[T ".content.has-text-centered"
+					[T "h2.subtitle.is-4" "Just Another Programming Language ?"]
+					[T "h1.title.is-4" "Maybe MORE !"]
+				]
+				
+				[T "section.section"
+					[T ".columns" 
+						[T "article.column.is-half.margin-10.content.notification.grey.lighten-4"
+							[T "h3.subtitle.is-3.green-text.text-darken-2.has-text-centered" "Ironscript IS"]
+							[T "ul"
+								[T "li" "A functional programming language."]
+								[T "li" "Inspired from various LISP dialects."]
+							]
+						]
+						
+						[T "article.column.content.notification.grey.lighten-4"
+							[T "h3.subtitle.is-3.red-text.text-darken-2.has-text-centered" "Ironscript IS NOT"]
+							[T "ul"
+								[T "li" "Extremely FAST."]
+								[T "li" "Stable YET."]
+							]
+						]
+					]
+				]
+
+
+				[T ".tile.is-ancestor" 
+					[T ".tile.is-4.is-vertical.is-parent" 
+						[T "article.tile.content.has-text-centered.is-child" [T "h2" "What is IS ?"] [T "p" "Lorem ipsum dolor sit amet"]]
+						[T "article.tile.content.has-text-centered.is-child" [T "h2" "What IS is not ?"] [T "p" "Lorem ipsum dolor sit amet"]]
+					]
+					[T ".tile.is-4.is-vertical.is-parent" 
+						[T "article.tile.is-child.content.has-text-centered"
+							[H "img" {[.src = "./assets/tommen.jpg"]}]
+						]
+					]
+					[T ".tile.is-4.is-vertical.is-parent" 
+						[T "article.tile.content.has-text-centered.is-child" [T "h2" "What is IS ?"] [T "p" "Lorem ipsum dolor sit amet"]]
+						[T "article.tile.content.has-text-centered.is-child" [T "h2" "What IS is not ?"] [T "p" "Lorem ipsum dolor sit amet"]]
+					]
+				]
+			] ]
+		]
+		render
+	) ]
+
+	(update "app-root" [T "app"])
+
+
+
+
+
+
+
+
+

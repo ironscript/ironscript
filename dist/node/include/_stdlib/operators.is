@@ -77,3 +77,5 @@ _sync
     $return (s);
    }@ )
 
+	(_def not @{ $return (!args[0]); }@)
+

@@ -1,18 +1,11 @@
 (_begin
 	(_include "stdlib")
-	(_echo (+ 1 3))
 	(_let fib (_fn (n)
 		(_if (< n 2)
 			n
 			(+ (fib (- n 1) ) (fib (- n 2) ) )
 		)
 	) )
-	(_echo (fib 15) )
+	(_echo (fib 18) )
 
-	(_let pass (_fn () NIL) )
-
-	(_let fib-machine (_stream pass NIL) )
-	(_let fibs (_seq 0 1) )
-	(_let push-fib-stream 
-	(_do (_on fib-machine 
 )

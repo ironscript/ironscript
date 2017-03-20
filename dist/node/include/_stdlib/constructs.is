@@ -1,4 +1,4 @@
-(_begin
+_sync
 
 	; cond macro
 
@@ -8,3 +8,5 @@
 			(_ (cond :exps) ) 
 		)
 	) )
+
+	(_def typeof @{ $return (typeof args[0]); }@ )
