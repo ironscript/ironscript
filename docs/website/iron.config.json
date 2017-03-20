@@ -1,0 +1,13 @@
+{
+  "main": "./app.is",
+  "imports": [
+    {
+      "name": "uniloc",
+      "url": "./uniloc/uniloc.js"
+    },
+    {
+      "name": "http",
+      "url": "./http.js"
+    }
+  ]
+}

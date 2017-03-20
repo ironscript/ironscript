@@ -43,9 +43,10 @@ export default function (basedir) {
 
   function _readFile (err, _env, _cb, filepath) {
     let basedir = _env.getc('__base_dir__');
-    //console.log(basedir);
+    //console.log(join(basedir, filepath));
     if (!basedir.startsWith('/')) basedir = join('./', basedir);
     readFile ( join(basedir, filepath), 'utf8', (err, str) => {
+			//console.log(str);
       nextTick (_cb, err, _env, null, str);  
     });
   }

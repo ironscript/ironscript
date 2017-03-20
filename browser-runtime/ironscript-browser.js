@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 import Package from './package.js';
 export function runPackage (pkgstr) {
+	console.log("Powered by Ironscript 1.2.2");
+	console.log("visit https://ironscript.gitgub.io for more info");
   let p = new Package(pkgstr);
-  p.run();
-  return null;
 }

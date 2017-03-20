@@ -76,22 +76,5 @@ _sync
     for (let arg of args) s += arg;
     $return (s);
    }@ )
-
-  (_rho (@a + @b) (+ @a @b))
-  (_rho (@a - @b) (- @a @b))
-  (_rho (@a * @b) (* @a @b))
-  (_rho (@a / @b) (/ @a @b))
-  (_rho (@a % @b) (% @a @b))
-
-  (_rho (@a == @b) (== @a @b))
-  (_rho (@a != @b) (!= @a @b))
-  (_rho (@a === @b) (=== @a @b))
-  (_rho (@a !== @b) (!== @a @b))
-  
-  (_rho (@a > @b) (> @a @b))
-  (_rho (@a < @b) (< @a @b))
-  (_rho (@a >= @b) (>= @a @b))
-  (_rho (@a <= @b) (<= @a @b))
-  
-  (_rho (@a && @b) (&& @a @b))
-  (_rho (@a || @b) (|| @a @b))
+	
+	(_def not @{ $return (! args[0]); }@ )

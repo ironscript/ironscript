@@ -4870,7 +4870,7 @@ var RhoState = function () {
   }, {
     key: 'find',
     value: function find(sym, varvec) {
-      if (this.table.has(sym.symbol)) return this.table.get(sym.symbol);else if (this.table.has(_ANY.symbol)) {
+      if (sym instanceof IronSymbol && this.table.has(sym.symbol)) return this.table.get(sym.symbol);else if (this.table.has(_ANY.symbol)) {
         varvec.push(sym);
         return this.table.get(_ANY.symbol);
       } else if (this.table.has(_REST.symbol)) {
@@ -5106,7 +5106,7 @@ var Reference = function () {
     }
 
     this.keys = keys;
-    if ((typeof obj === 'undefined' ? 'undefined' : _typeof(obj)) === 'object' && obj.__itype__ === 'env') this.cmd = 'get';else this.cmd = cmd;
+    if (Env.isEnv(obj)) this.cmd = 'get';else this.cmd = cmd;
   }
 
   createClass(Reference, [{
@@ -5122,8 +5122,8 @@ var Reference = function () {
           var key = _step.value;
 
           if ((typeof obj === 'undefined' ? 'undefined' : _typeof(obj)) === 'object') {
-            if (obj.__itype__ === 'collection' || obj.__itype__ === 'sequence') obj = obj.get(key);
-            if (obj.__itype__ === 'env') obj = obj.get(new IronSymbol(key));else obj = obj[key];
+            if (Collection.isCollection(obj) || Sequence.isSequence(obj)) obj = obj.get(key);
+            if (Env.isEnv(obj)) obj = obj.get(new IronSymbol(key));else obj = obj[key];
           } else return undefined;
         }
       } catch (err) {
@@ -5156,7 +5156,7 @@ var Reference = function () {
           var key = _step2.value;
 
           if ((typeof obj === 'undefined' ? 'undefined' : _typeof(obj)) === 'object') {
-            if (obj.__itype__ === 'collection' || obj.__itype__ === 'sequence') obj = obj.get(key);else obj = obj[key];
+            if (Collection.isCollection(obj) || Sequence.isSequence(obj)) obj = obj.get(key);else obj = obj[key];
           } else return undefined;
         }
       } catch (err) {
@@ -5175,7 +5175,7 @@ var Reference = function () {
       }
 
       if ((typeof obj === 'undefined' ? 'undefined' : _typeof(obj)) === 'object') {
-        if (obj.__itype__ === 'collection' || obj.__itype__ === 'sequence') {
+        if (Collection.isCollection(obj) || Sequence.isSequence(obj)) {
           obj.set(this.keys[this.keys.length - 1], val);
           return val;
         } else {
@@ -5192,6 +5192,11 @@ var Reference = function () {
       if (this.cmd === 'get') return this.get();else if (this.cmd === 'set') return function (val) {
         return _this.set(val);
       };else return undefined;
+    }
+  }], [{
+    key: 'isReference',
+    value: function isReference(obj) {
+      return (typeof obj === 'undefined' ? 'undefined' : _typeof(obj)) === 'object' && obj.__itype__ === 'reference';
     }
   }]);
   return Reference;
@@ -5226,6 +5231,12 @@ var Collection = function (_Store) {
     return _this2;
   }
 
+  createClass(Collection, null, [{
+    key: 'isCollection',
+    value: function isCollection(obj) {
+      return (typeof obj === 'undefined' ? 'undefined' : _typeof(obj)) === 'object' && obj.__itype__ === 'collection';
+    }
+  }]);
   return Collection;
 }(Store);
 
@@ -5268,6 +5279,12 @@ var Sequence = function (_Store2) {
     return _this3;
   }
 
+  createClass(Sequence, null, [{
+    key: 'isSequence',
+    value: function isSequence(obj) {
+      return (typeof obj === 'undefined' ? 'undefined' : _typeof(obj)) === 'object' && obj.__itype__ === 'sequence';
+    }
+  }]);
   return Sequence;
 }(Store);
 
@@ -5398,6 +5415,11 @@ var Env = function () {
       if (this.symtab.has(key)) return this.symtab.get(key);else if (this.par !== null) return this.par.getc(key);else return null;
     }
   }], [{
+    key: 'isEnv',
+    value: function isEnv(obj) {
+      return (typeof obj === 'undefined' ? 'undefined' : _typeof(obj)) === 'object' && obj.__itype__ === 'env';
+    }
+  }, {
     key: 'clone',
     value: function clone(env) {
       var e = new Env(null, null, env.par);
@@ -5434,81 +5456,91 @@ var Env = function () {
  *
  */
 
-var Stream = function Stream(core, env) {
-  var _this = this;
+var Stream = function () {
+  function Stream(core, env) {
+    var _this = this;
 
-  classCallCheck(this, Stream);
+    classCallCheck(this, Stream);
 
-  this.__itype__ = 'stream';
-  this.env = env;
-  this.core = core;
-  this.value = undefined;
+    this.__itype__ = 'stream';
+    this.env = env;
+    this.core = core;
+    this.value = undefined;
 
-  this.callbacks = [];
-  this.addcb = function (cb) {
-    _this.callbacks.push(cb);
-  };
+    this.callbacks = [];
+    this.addcb = function (cb) {
+      _this.callbacks.push(cb);
+    };
 
-  this.push = function (val) {
-    _this.value = val;
-    if (val !== null && val !== undefined) {
-      var _iteratorNormalCompletion = true;
-      var _didIteratorError = false;
-      var _iteratorError = undefined;
+    this.push = function (val) {
+      _this.value = val;
+      if (val !== null && val !== undefined) {
+        var _iteratorNormalCompletion = true;
+        var _didIteratorError = false;
+        var _iteratorError = undefined;
 
-      try {
-        for (var _iterator = _this.callbacks[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
-          var _cb = _step.value;
-
-          nextTick(_cb, null, _this.env, null, val);
-        }
-      } catch (err) {
-        _didIteratorError = true;
-        _iteratorError = err;
-      } finally {
         try {
-          if (!_iteratorNormalCompletion && _iterator.return) {
-            _iterator.return();
+          for (var _iterator = _this.callbacks[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+            var _cb = _step.value;
+
+            nextTick(_cb, null, _this.env, null, val);
           }
+        } catch (err) {
+          _didIteratorError = true;
+          _iteratorError = err;
         } finally {
-          if (_didIteratorError) {
-            throw _iteratorError;
+          try {
+            if (!_iteratorNormalCompletion && _iterator.return) {
+              _iterator.return();
+            }
+          } finally {
+            if (_didIteratorError) {
+              throw _iteratorError;
+            }
           }
         }
       }
-    }
-  };
+    };
 
-  nextTick(this.core, function (val) {
-    _this.value = val;
-    if (val !== null && val !== undefined) {
-      var _iteratorNormalCompletion2 = true;
-      var _didIteratorError2 = false;
-      var _iteratorError2 = undefined;
+    nextTick(this.core, function (val) {
+      _this.value = val;
+      if (val !== null && val !== undefined) {
+        var _iteratorNormalCompletion2 = true;
+        var _didIteratorError2 = false;
+        var _iteratorError2 = undefined;
 
-      try {
-        for (var _iterator2 = _this.callbacks[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
-          var _cb2 = _step2.value;
-
-          nextTick(_cb2, null, _this.env, null, val);
-        }
-      } catch (err) {
-        _didIteratorError2 = true;
-        _iteratorError2 = err;
-      } finally {
         try {
-          if (!_iteratorNormalCompletion2 && _iterator2.return) {
-            _iterator2.return();
+          for (var _iterator2 = _this.callbacks[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+            var _cb2 = _step2.value;
+
+            nextTick(_cb2, null, _this.env, null, val);
           }
+        } catch (err) {
+          _didIteratorError2 = true;
+          _iteratorError2 = err;
         } finally {
-          if (_didIteratorError2) {
-            throw _iteratorError2;
+          try {
+            if (!_iteratorNormalCompletion2 && _iterator2.return) {
+              _iterator2.return();
+            }
+          } finally {
+            if (_didIteratorError2) {
+              throw _iteratorError2;
+            }
           }
         }
       }
+    });
+  }
+
+  createClass(Stream, null, [{
+    key: 'isStream',
+    value: function isStream(obj) {
+      return obj instanceof Object && obj.__itype__ === 'stream';
     }
-  });
-};
+  }]);
+  return Stream;
+}();
 
 var _dot$1 = new IronSymbol('_dot');
 
@@ -5527,13 +5559,8 @@ function def(name, val, env, cb) {
 		evalAsync(val, env, function (err, _env, _, value) {
 			if (value instanceof Cell) {
 				cellToArr(value, [], env, function (err, _env, _, args) {
-					var evalArg = function evalArg(arg, _cb) {
-						evalAsync(arg, env, function (err, env, _, argval) {
-							_cb(err, argval);
-						});
-					};
 
-					mapLimit(args, 32, evalArg, function (err, argvals) {
+					mapLimit(args, 32, evalArg(env), function (err, argvals) {
 						var names = name;
 						var arglist = Cell.list(argvals);
 						while (names instanceof Cell) {
@@ -5561,7 +5588,7 @@ function def(name, val, env, cb) {
 }
 
 var egg = function () {
-	return "Ironscript Beta (1.2.1)";
+		return " Ironscript Beta (1.2.1)" + "\n Believe it or not we are about 30 times slower than JS !!!" + "\n Therefore only a fool would use Ironscript to do trivial stuff." + "\n It is designed to be used as a syntactical abstraction over JS," + "\n It is recommended that you use the @{ ... }@ blocks to write the" + "\n performance critical parts of your apllication in JS. Use Ironscript" + "\n to define the asynchronous data and control flow among these " + "\n parts written in JS.";
 }
 
 /**
@@ -5610,6 +5637,7 @@ var _fr = new IronSymbol('_fr');
 
 var _begin = new IronSymbol('_begin');
 var _sync = new IronSymbol('_sync');
+var _module = new IronSymbol('_module');
 var _rho = new IronSymbol('_rho');
 
 var _try = new IronSymbol('_try');
@@ -5636,13 +5664,30 @@ var _do = new IronSymbol('_do');
 var _on = new IronSymbol('_on');
 
 var _include = new IronSymbol('_include');
+var _use = new IronSymbol('_use');
 var _import = new IronSymbol('_import');
 
-var defaultCallback = function defaultCallback(err, env) {
-	if (err) {
-		if (err instanceof IError) err.log();
-		throw err;
-	}
+var evalArg = function evalArg(env) {
+	return function (arg, _cb) {
+		evalAsync(arg, env, function (err, __e, __c, argval) {
+			nextTick(_cb, err, argval);
+		});
+	};
+};
+
+var defaultCallback = function defaultCallback() {
+	return function (err) {
+		if (err) {
+			if (err instanceof IError) err.log();
+			throw err;
+		}
+	};
+};
+
+var endOfExecution = function endOfExecution() {
+	return function (err) {
+		if (!err) console.timeEnd("Runtime");else throw err;
+	};
 };
 
 function cellToArr(cell, arr, env, cb) {
@@ -5651,21 +5696,18 @@ function cellToArr(cell, arr, env, cb) {
 		cell = cell.cdr;
 	}
 	if (cell !== null) {
-		nextTick(evalAsync, cell, env, function (err, _env, _, val) {
-			if (val instanceof Cell) cellToArr(val, arr, env, cb);else {
-				arr.push(val);
-				cb(err, env, null, arr);
-			}
+		evalAsync(cell, env, function (err, _env, _, val) {
+			if (val instanceof Cell) cellToArr(val, arr, env, cb);else cb(err, env, null, arr);
 		});
 	} else cb(null, env, null, arr);
 }
 
 function evalAsync(x, env) {
-	var cb = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : defaultCallback;
+	var cb = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : endOfExecution();
 
 	if (x instanceof IronSymbol) {
 		if (_self.equal(x)) cb(null, env, null, env);else if (_this.equal(x)) cb(null, env, null, env.collection);else if (_null_.equal(x)) cb(null, env, null, null);else if (_true_.equal(x)) cb(null, env, null, true);else if (_false_.equal(x)) cb(null, env, null, false);else env.getAsync(x, cb);
-	} else if (!(x instanceof Cell)) cb(null, env, null, x);else nextTick(cellToArr, x, [], env, function (err, env, _, xarray) {
+	} else if (!(x instanceof Cell)) cb(null, env, null, x);else cellToArr(x, [], env, function (err, env, _, xarray) {
 
 		if (_quote.equal(xarray[0])) cb(null, env, null, xarray[1]);else if (_eval.equal(xarray[0])) {
 			evalAsync(xarray[1], env, function (err, env, _, y) {
@@ -5678,7 +5720,7 @@ function evalAsync(x, env) {
 				evalAsync(_car, env, function (err, env, _, car) {
 					evalAsync(_cdr, env, function (err, env, _, cdr) {
 						var list = Cell.cons(car, cdr);
-						nextTick(cb, null, env, null, list);
+						cb(null, env, null, list);
 					});
 				});
 			})();
@@ -5691,13 +5733,7 @@ function evalAsync(x, env) {
 			});
 		} else if (_seq.equal(xarray[0])) {
 			var args = xarray.slice(1);
-			var evalArg = function evalArg(arg, _cb) {
-				evalAsync(arg, env, function (err, env, _, argval) {
-					nextTick(_cb, err, argval);
-				});
-			};
-
-			mapLimit(args, 32, evalArg, function (err, argvals) {
+			mapLimit(args, 32, evalArg(env), function (err, argvals) {
 				cb(err, env, null, new Sequence(argvals));
 			});
 		} else if (_map.equal(xarray[0]) || _filter$1.equal(xarray[0])) {
@@ -5705,10 +5741,13 @@ function evalAsync(x, env) {
 				var _seqn = xarray[1];
 				var _func = xarray[2];
 				evalAsync(_seqn, env, function (err, _env, _, seq$$1) {
-					if (seq$$1 instanceof Array || seq$$1.__itype__ === 'sequence') {
+					var seqIsSequence = Sequence.isSequence(seq$$1);
+					if (seq$$1 instanceof Array || seqIsSequence) {
 						(function () {
+
+							//transform seq to an array of objects with indices and values
 							var _arr = seq$$1;
-							if (seq$$1.__itype__ === 'sequence') _arr = seq$$1.arr;
+							if (seqIsSequence) _arr = seq$$1.arr;
 							var arr = [];
 							var i = 0;
 							var _iteratorNormalCompletion = true;
@@ -5739,13 +5778,16 @@ function evalAsync(x, env) {
 
 							evalAsync(_func, env, function (err, _env, _, func) {
 								if (func instanceof Function) {
+
+									//create a callback for async.map / async.filter
 									var cbfn = function cbfn(arg, _cb) {
 										nextTick(func, null, env, function (err, _env, _, val) {
 											_cb(err, val);
 										}, arg.val, arg.index);
 									};
+
 									if (_map.equal(xarray[0])) mapLimit(arr, 32, cbfn, function (err, newarr) {
-										if (seq$$1.__itype__ === 'sequence') cb(err, env, null, new Sequence(newarr));else cb(err, env, null, newarr);
+										if (seqIsSequence) cb(err, env, null, new Sequence(newarr));else cb(err, env, null, newarr);
 									});else filterLimit(arr, 32, cbfn, function (err, newarr) {
 										var retarr = [];
 										var _iteratorNormalCompletion2 = true;
@@ -5772,7 +5814,7 @@ function evalAsync(x, env) {
 											}
 										}
 
-										if (seq$$1.__itype__ === 'sequence') cb(err, env, null, new Sequence(retarr));else cb(err, env, null, retarr);
+										if (seqIsSequence) cb(err, env, null, new Sequence(retarr));else cb(err, env, null, retarr);
 									});
 								} else cb(Cell.stringify(_func) + ' is not a Function');
 							});
@@ -5786,13 +5828,7 @@ function evalAsync(x, env) {
 				var cmd = x.ctx;
 				if (x.ctx === null) cmd = 'get';
 
-				var evalArg = function evalArg(arg, _cb) {
-					evalAsync(arg, env, function (err, env, _, argval) {
-						nextTick(_cb, err, argval);
-					});
-				};
-
-				mapLimit(args, 32, evalArg, function (err, argvals) {
+				mapLimit(args, 32, evalArg(env), function (err, argvals) {
 					var ref = new (Function.prototype.bind.apply(Reference, [null].concat([cmd], toConsumableArray(argvals))))();
 					cb(err, env, null, ref.value);
 				});
@@ -5820,6 +5856,7 @@ function evalAsync(x, env) {
 				});
 			})();
 		} else if (_def.equal(xarray[0]) || _let.equal(xarray[0])) {
+			// _def/_let form, evaluation defined in specialforms/def.js : function def
 			def(xarray[1], xarray[2], env, cb);
 		} else if (_assign_unsafe.equal(xarray[0]) || _set_unsafe.equal(xarray[0])) {
 			(function () {
@@ -5841,7 +5878,7 @@ function evalAsync(x, env) {
 						var arr = _arr;
 						var val = _val;
 
-						if (arr instanceof Array || arr instanceof Object && (arr.__itype__ === 'sequence' || arr.__itype__ === 'stream')) {
+						if (arr instanceof Array || Sequence.isSequence(arr) || Stream.isStream(arr)) {
 							arr.push(val);
 							cb(null, env, null, arr);
 						} else cb(new IError('Can _push to Arrays, Sequences and Streams'));
@@ -5861,7 +5898,7 @@ function evalAsync(x, env) {
 					if (sts instanceof IError) cb(sts);else cb(null, env, null, env);
 				});
 			})();
-		} else if (_begin.equal(xarray[0]) || _sync.equal(xarray[0]) || _coll.equal(xarray[0])) {
+		} else if (_begin.equal(xarray[0]) || _sync.equal(xarray[0]) || _coll.equal(xarray[0]) || _module.equal(xarray[0])) {
 			(function () {
 				var root = x.cdr;
 				var cur = root;
@@ -5882,11 +5919,11 @@ function evalAsync(x, env) {
 				}, function (callback) {
 					evalAsync(args[i], _env, function (err, __env, _, argval) {
 						i += 1;
-						nextTick(callback, err, argval);
+						callback(err, argval);
 					});
 				}, function (err, res) {
 					if (unsyncFlag) _env.unsync();
-					if (isColl) cb(err, env, null, _env.collection.obj);else nextTick(cb, err, _env, null, res);
+					if (isColl) cb(err, env, null, _env.collection.obj);else cb(err, _env, null, res);
 				});
 			})();
 		} else if (_stream.equal(xarray[0])) {
@@ -5934,7 +5971,7 @@ function evalAsync(x, env) {
 				var expr = xarray[2];
 
 				evalAsync(controlStream, env, function (err, _env, _, cs) {
-					if ((typeof cs === 'undefined' ? 'undefined' : _typeof(cs)) === 'object' && cs.__itype__ === 'stream') {
+					if (Stream.isStream(cs)) {
 						var corefn = function corefn(updatefn) {
 							cs.addcb(function (err, _env, _cb, val) {
 								evalAsync(expr, env, function (err, _env, _, val) {
@@ -5945,30 +5982,32 @@ function evalAsync(x, env) {
 
 						var stream = new Stream(corefn, env);
 						cb(err, env, null, stream);
-					} else cb('_on expects a Stream, ' + Cell.stringify(streamObj) + ' is not a Stream');
+					} else cb('_on expects a Stream, ' + Cell.stringify(controlStream) + ' is not a Stream');
 				});
 			})();
 		} else if (_pull.equal(xarray[0])) {
 			var stream = xarray[1];
 			evalAsync(stream, env, function (err, _env, _, s) {
-				if (s instanceof Object && s.__itype__ === 'stream') cb(null, env, null, s.value);else if (s instanceof Array) cb(null, env, null, s.shift());else if (s instanceof Object && s.__itype__ === 'sequence') cb(null, env, null, s.pull());else cb(new IError("can pull from Streams, Arrays and Sequences"));
+				if (Stream.isStream(s)) cb(null, env, null, s.value);else if (s instanceof Array) cb(null, env, null, s.shift());else if (Sequence.isSequence(s)) cb(null, env, null, s.pull());else cb(new IError("can pull from Streams, Arrays and Sequences"));
 			});
 		} else if (_pop.equal(xarray[0])) {
 			var _arr2 = xarray[1];
 			evalAsync(_arr2, env, function (err, _env, _, arr) {
-				if (arr instanceof Array || arr instanceof Object && arr.__itype__ === 'sequence') cb(null, env, null, arr.pop());else cb(new IError("can pop from Arrays and Sequences"));
+				if (arr instanceof Array || Sequence.isSequence(arr)) cb(null, env, null, arr.pop());else cb(new IError("can pop from Arrays and Sequences"));
 			});
 		} else if (_do.equal(xarray[0])) {
-			var _stream2 = xarray[1];
-			evalAsync(_stream2, env, function (err, _env, _, streamObj) {
-				if ((typeof streamObj === 'undefined' ? 'undefined' : _typeof(streamObj)) === 'object' && streamObj.__itype__ === 'stream') streamObj.addcb(function (err) {
-					if (err) throw err;
-				});else cb('_do expects a Stream, ' + Cell.stringify(streamObj) + ' is not a Stream');
-			});
-			cb(null, env, null, null);
-		} else if (_include.equal(xarray[0])) {
 			(function () {
-				var includefn = env.get(xarray[0]);
+				var stream = xarray[1];
+				evalAsync(stream, env, function (err, _env, _, streamObj) {
+					if (Stream.isStream(streamObj)) {
+						streamObj.addcb(defaultCallback());
+						cb(null, env, null, null);
+					} else cb('_do expects a Stream, ' + Cell.stringify(stream) + ' is not a Stream');
+				});
+			})();
+		} else if (_include.equal(xarray[0]) || _use.equal(xarray[0])) {
+			(function () {
+				var includefn = env.get(_include);
 				evalAsync(xarray[1], env, function (err, _env, _, sourcename) {
 					nextTick(includefn, err, env, cb, sourcename);
 				});
@@ -5985,39 +6024,29 @@ function evalAsync(x, env) {
 				});
 			})();
 		} else {
-			nextTick(evalAsync, xarray[0], env, function (err, env, _, func) {
-				if (func instanceof Object && func.__itype__ === "env") {
+			evalAsync(xarray[0], env, function (err, env, _, func) {
+
+				if (Env.isEnv(func)) {
 					var acell = x.cdr;
 					var reduced = func.rho.reduce(acell, env);
 					if (reduced === null) //cb( null, env, null, null);
-						evalAsync(Cell.list(xarray.slice(1)), env, cb);else nextTick(evalAsync, reduced, env, cb);
-				} else if (func instanceof Object && func.__itype__ === 'stream') {
+						evalAsync(Cell.list(xarray.slice(1)), env, cb);else evalAsync(reduced, env, cb);
+				} else if (Stream.isStream(func)) {
 					func.addcb(cb);
 					cb(err, env, null, func.value);
 				} else if (func instanceof Object && func.__itype__ === 'specialform') {
 					func = func.func;
 					var _args = xarray.slice(1);
-					var _env3 = new Env(null, null, env);
-					func.apply(undefined, [null, _env3, cb].concat(toConsumableArray(_args)));
+					func.apply(undefined, [null, env, cb].concat(toConsumableArray(_args)));
 				} else if (func instanceof Function) {
 					var _args2 = xarray.slice(1);
-					var _evalArg = function _evalArg(arg, _cb) {
-						evalAsync(arg, env, function (err, env, _, argval) {
-							_cb(err, argval);
-						});
-					};
-
-					mapLimit(_args2, 64, _evalArg, function (err, argvals) {
-						var _env = new Env(null, null, env);
-						nextTick.apply(undefined, [func, err, _env, cb].concat(toConsumableArray(argvals)));
+					mapLimit(_args2, 64, evalArg(env), function (err, argvals) {
+						func.apply(undefined, [err, env, cb].concat(toConsumableArray(argvals)));
 					});
-				} else {
-					cb(null, env, null, x);
-				}
+				} else cb(null, env, null, x);
 			});
 		}
 	});
-	return;
 }
 
 /**
@@ -6501,8 +6530,11 @@ function _eval_unsafe(err, env, cb, src, name) {
 
 function interpretSync(src, name, env) {
   if (!name) name = 'unnamed';
+  console.time("Runtime");
   var p = new Parser({ name: name, buffer: src });
-  nextTick(evalAsync, p.parse(), env);
+  evalAsync(p.parse(), env, function (err) {
+    if (err) throw err;
+  });
 }
 
 /**
@@ -6642,13 +6674,16 @@ function importfn(env) {
       }
       nextTick(cb, null, _env, null, importEnv);
     } else {
+      _env.defc('__base_dir__', sourceDir);
       nextTick(readSource, err, _env, function (err, __env, _cb, src) {
+        _env.defc('__base_dir__', basedir);
         var p = new Parser({ name: sourcename, buffer: src });
-        _env.defc('__base_dir__', sourceDir);
 
-        nextTick(evalAsync, p.parse(), env, function (err, importEnv, _cb, val) {
+        var execenv = new Env(null, null, env);
+        execenv.defc('__base_dir__', sourceDir);
+
+        nextTick(evalAsync, p.parse(), execenv, function (err, importEnv, _cb, val) {
           imported.set(filename, importEnv);
-          _env.defc('__base_dir__', basedir);
           if (namesList) {
             if (namesList instanceof Cell) {
               while (namesList instanceof Cell) {
@@ -6980,34 +7015,37 @@ var Package = function () {
     this.runtime.mount('/include', f.get('include'));
 
     //console.log(this.runtime);
+    if (!this.jsImports || this.jsImports.length === 0) {
+      this.run();
+    } else {
+      var _iteratorNormalCompletion = true;
+      var _didIteratorError = false;
+      var _iteratorError = undefined;
 
-    var _iteratorNormalCompletion = true;
-    var _didIteratorError = false;
-    var _iteratorError = undefined;
-
-    try {
-      for (var _iterator = this.jsImports[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
-        var imp = _step.value;
-
-        var cb = function cb(script) {
-          var head = document.getElementsByTagName('head')[0];
-          head.removeChild(script);
-          _this._loadlock -= 1;
-          if (_this._loadlock === 0) _this.run();
-        };
-        loadScript(imp.url, cb);
-      }
-    } catch (err) {
-      _didIteratorError = true;
-      _iteratorError = err;
-    } finally {
       try {
-        if (!_iteratorNormalCompletion && _iterator.return) {
-          _iterator.return();
+        for (var _iterator = this.jsImports[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+          var imp = _step.value;
+
+          var cb = function cb(script) {
+            var head = document.getElementsByTagName('head')[0];
+            head.removeChild(script);
+            _this._loadlock -= 1;
+            if (_this._loadlock === 0) _this.run();
+          };
+          loadScript(imp.url, cb);
         }
+      } catch (err) {
+        _didIteratorError = true;
+        _iteratorError = err;
       } finally {
-        if (_didIteratorError) {
-          throw _iteratorError;
+        try {
+          if (!_iteratorNormalCompletion && _iterator.return) {
+            _iterator.return();
+          }
+        } finally {
+          if (_didIteratorError) {
+            throw _iteratorError;
+          }
         }
       }
     }
@@ -7016,8 +7054,9 @@ var Package = function () {
   createClass(Package, [{
     key: 'run',
     value: function run() {
-      //console.log("Running ", this.main);
+      console.log("Running ", this.main);
       this.runtime.run(this.main);
+      return null;
     }
   }]);
   return Package;
@@ -7072,9 +7111,9 @@ document.addEventListener('DOMContentLoaded', () => {
 */
 
 function runPackage(pkgstr) {
+  console.log("Powered by Ironscript 1.2.2");
+  console.log("visit https://ironscript.gitgub.io for more info");
   var p = new Package(pkgstr);
-  p.run();
-  return null;
 }
 
 exports.runPackage = runPackage;

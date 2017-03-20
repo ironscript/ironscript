@@ -58,7 +58,7 @@ class RhoState {
 		
 
   find (sym, varvec) {
-    if (this.table.has(sym.symbol)) return this.table.get(sym.symbol);
+    if (sym instanceof IronSymbol && this.table.has(sym.symbol)) return this.table.get(sym.symbol);
     else if (this.table.has(_ANY.symbol)) {
       varvec.push(sym);
       return this.table.get(_ANY.symbol);

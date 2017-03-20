@@ -19,21 +19,26 @@ export default class Package {
     this.runtime.mount ('/include', f.get('include'));
     
     //console.log(this.runtime);
-
-    for (let imp of this.jsImports) {
-      let cb = (script) => {
-        let head = document.getElementsByTagName('head')[0];
-        head.removeChild(script);
-        this._loadlock -= 1;
-        if(this._loadlock===0)this.run();
-      }
-      loadScript (imp.url, cb);
+		if (!this.jsImports || this.jsImports.length === 0) {
+			this.run();
+		}
+		else {
+			for (let imp of this.jsImports) {
+      	let cb = (script) => {
+        	let head = document.getElementsByTagName('head')[0];
+        	head.removeChild(script);
+        	this._loadlock -= 1;
+        	if(this._loadlock===0) this.run();
+      	}
+      	loadScript (imp.url, cb);
+			}
     }
   }
 
   run () {
-    //console.log("Running ", this.main);
+    console.log("Running ", this.main);
     this.runtime.run(this.main);
+		return null;
   }
 }
 

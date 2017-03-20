@@ -4,7 +4,7 @@ import IronSymbol from '../symbol.js';
 import IError from '../errors.js';
 import {mapLimit} from 'async-es';
 import {Reference} from '../collection.js';
-import {default as evalAsync, cellToArr} from '../evalAsync.js';
+import {default as evalAsync, cellToArr, evalArg} from '../evalAsync.js';
 
 const _dot = new IronSymbol ('_dot');
 
@@ -25,13 +25,8 @@ export default function def (name, val, env, cb) {
 		evalAsync (val, env, (err, _env, _, value) => {
 			if (value instanceof Cell) {
 				cellToArr (value, [], env, (err, _env, _, args) => {
-					let evalArg = (arg, _cb) => {
-						evalAsync( arg, env, (err, env, _, argval) => {
-							_cb( err, argval);
-						});
-					};
 			
-					mapLimit (args, 32, evalArg, (err, argvals) => {
+					mapLimit (args, 32, evalArg(env), (err, argvals) => {
 						let names = name;
 						let arglist = Cell.list(argvals);
 						while (names instanceof Cell) {

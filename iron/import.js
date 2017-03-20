@@ -27,6 +27,7 @@ import Parser from './parser.js';
 import evalAsync from './evalAsync.js';
 import IronSymbol from './symbol.js';
 import Cell from './cell.js';
+import Env from './env.js';
 
 const _readsource = new IronSymbol('_readsource');
 
@@ -64,13 +65,16 @@ export function importfn (env) {
       nextTick (cb, null, _env, null, importEnv);
     }
     else {
+			_env.defc('__base_dir__', sourceDir);
       nextTick (readSource, err, _env, (err, __env, _cb, src) => {
+				_env.defc('__base_dir__', basedir);
         let p = new Parser ({name:sourcename, buffer:src});
-        _env.defc('__base_dir__', sourceDir);
+       	
+				let execenv = new Env (null, null, env);
+				execenv.defc('__base_dir__', sourceDir);
 
-        nextTick (evalAsync, p.parse(), env, (err, importEnv, _cb, val) => {
+				nextTick (evalAsync, p.parse(), execenv, (err, importEnv, _cb, val) => {
           imported.set (filename, importEnv);
-          _env.defc('__base_dir__', basedir);
           if (namesList) {
             if (namesList instanceof Cell) {
               while (namesList instanceof Cell) {
