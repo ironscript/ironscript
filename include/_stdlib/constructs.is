@@ -1,0 +1,12 @@
+_sync
+
+	; cond macro
+
+	(_let cond (_fr (exp : exps) 
+		(_if (_ (_car exp)) 
+			(_ (_car (_cdr exp) ) )
+			(_ (cond :exps) ) 
+		)
+	) )
+
+	(_def typeof @{ $return (typeof args[0]); }@ )

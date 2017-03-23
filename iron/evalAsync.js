@@ -32,9 +32,7 @@ import {nextTick, mapLimit, whilst, filterLimit} from 'async-es';
 
 
 import {Reference, Collection, Sequence} from './collection.js';
-
 import def from './specialforms/def.js';
-
 import egg from './egg.js';
 
 // changes from version to version, contextual usage only. 
@@ -62,6 +60,7 @@ const _fr = new IronSymbol ('_fr');
 
 const _begin = new IronSymbol ('_begin');
 const _sync = new IronSymbol ('_sync');
+const _module = new IronSymbol ('_module');
 const _rho = new IronSymbol ('_rho');
 
 const _try = new IronSymbol ('_try');
@@ -89,13 +88,34 @@ const _do = new IronSymbol('_do');
 const _on = new IronSymbol('_on'); 
 
 const _include = new IronSymbol('_include'); 
+const _use = new IronSymbol('_use'); 
 const _import = new IronSymbol('_import'); 
 
-export const defaultCallback = (err, env) => {
-  if (err) {
-    if (err instanceof IError) err.log();
-    throw err;
-  }
+
+
+export const evalArg = (env) => {
+	return (arg, _cb) => {
+		evalAsync( arg, env, (err, __e, __c, argval) => {
+			nextTick (_cb, err, argval);
+		});
+	};
+};
+
+
+export const defaultCallback = () => {
+	return (err) => {
+  	if (err) {
+    	if (err instanceof IError) err.log();
+    	throw err;
+  	}
+	}
+};
+
+export const endOfExecution = () => { 
+	return (err) => {
+		if (!err) console.timeEnd("Runtime");
+		else throw err;
+	}
 };
 
 export function cellToArr (cell, arr, env, cb) {
@@ -104,21 +124,15 @@ export function cellToArr (cell, arr, env, cb) {
 		cell = cell.cdr;
 	}
 	if (cell !== null) {
-		nextTick (evalAsync, cell, env, (err, _env, _, val) => {
+		evalAsync (cell, env, (err, _env, _, val) => {
 			if (val instanceof Cell) cellToArr (val, arr, env, cb);
-			else {
-				arr.push (val);
-				cb (err, env, null, arr);
-			}
+			else cb (err, env, null, arr);
 		});
 	}
 	else cb(null, env, null, arr);
 }
 
-
-
-
-export default function evalAsync (x, env, cb=defaultCallback ) {
+export default function evalAsync (x, env, cb=endOfExecution() ) {
   if (x instanceof IronSymbol) {
     if (_self.equal(x)) cb (null, env, null, env);
     else if (_this.equal(x)) cb( null, env, null, env.collection);
@@ -130,25 +144,31 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 
   else if (!(x instanceof Cell)) cb( null, env, null, x); 
 	
-	else nextTick (cellToArr, x, [], env, (err, env, _, xarray) => {
+	else cellToArr (x, [], env, (err, env, _, xarray) => {
 		
 		if (_quote.equal(xarray[0])) cb( null, env, null, xarray[1]);
+		
+		
 		else if (_eval.equal(xarray[0])) {
 			evalAsync (xarray[1], env, (err, env, _, y) => {
 				if (err) cb (err);
 				else evalAsync (y, env, cb);
 			});
 		}
+		
+		
 		else if (_cons.equal(xarray[0])) {
 			let _car = xarray[1];
 			let _cdr = xarray[2];
 			evalAsync( _car, env, (err, env, _, car) => {
 				evalAsync( _cdr, env, (err, env, _, cdr) => {
 					let list = Cell.cons(car, cdr);
-					nextTick (cb, null, env, null, list);
+					cb(null, env, null, list);
 				});
 			});
 		}
+		
+		
 		else if (_car.equal(xarray[0]) || _cdr.equal(xarray[0])) {
 			evalAsync( xarray[1], env, (err, env, _, list) => {
 				if (list instanceof Cell) {
@@ -158,48 +178,52 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 				else cb( null, env, null, null);
 			});
 		}
+		
+		
 		else if (_seq.equal(xarray[0])) {
 			let args = xarray.slice(1);
-			let evalArg = (arg, _cb) => {
-				evalAsync( arg, env, (err, env, _, argval) => {
-					nextTick (_cb, err, argval);
-				});
-			};
-			
-			mapLimit (args, 32, evalArg, (err, argvals) => {
+			mapLimit (args, 32, evalArg(env), (err, argvals) => {
 				cb( err, env, null, new Sequence (argvals) );
 			});
 		}
+
+
 		else if (_map.equal(xarray[0]) || _filter.equal(xarray[0])) {
 			let _seqn = xarray[1];
 			let _func = xarray[2];
 			evalAsync( _seqn, env, (err, _env, _, seq) => {
-				if (seq instanceof Array || seq.__itype__ === 'sequence') {
+				let seqIsSequence = Sequence.isSequence (seq);
+				if (seq instanceof Array || seqIsSequence) {
+					
+					//transform seq to an array of objects with indices and values
 					let _arr = seq;
-					if (seq.__itype__ === 'sequence') _arr = seq.arr;
+					if (seqIsSequence) _arr = seq.arr;
 					let arr = [];
 					let i = 0;
 					for (let it of  _arr) {
 						arr.push({index:i, val:it});
 						i++;
 					}
+
 					evalAsync( _func, env, (err, _env, _, func) => {
 						if (func instanceof Function) {
+
+							//create a callback for async.map / async.filter
 							let cbfn = (arg, _cb) => {
 								nextTick (func, null, env, (err, _env, _, val) => {_cb(err, val);}, arg.val, arg.index);
 							}
-							if (_map.equal(xarray[0]))
-								mapLimit (arr, 32, cbfn, (err, newarr) => {
-									if (seq.__itype__==='sequence') cb( err, env, null, new Sequence(newarr));
-									else cb( err, env, null, newarr);
-								});
-							else 
-								filterLimit (arr, 32, cbfn, (err, newarr) => {
-									let retarr = [];
-									for (let it of newarr) retarr.push(it.val);
-									if (seq.__itype__==='sequence') cb( err, env, null, new Sequence(retarr));
-									else cb( err, env, null, retarr);
-								});
+
+							if (_map.equal(xarray[0])) mapLimit (arr, 32, cbfn, (err, newarr) => {
+								if (seqIsSequence) cb( err, env, null, new Sequence(newarr));
+								else cb( err, env, null, newarr);
+							});
+							
+							else filterLimit (arr, 32, cbfn, (err, newarr) => {
+								let retarr = [];
+								for (let it of newarr) retarr.push(it.val);
+								if (seqIsSequence) cb( err, env, null, new Sequence(retarr));
+								else cb( err, env, null, retarr);
+							});
 						}
 						else cb( Cell.stringify(_func)+' is not a Function');
 					});
@@ -207,22 +231,21 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 				else cb( Cell.stringify(_seqn)+' is not an Array or Sequence');
 			});
 		}
+
+
+
 		else if (_dot.equal(xarray[0])) {
 			let args = xarray.slice(1);
 			let cmd = x.ctx;
 			if (x.ctx === null) cmd = 'get';
-
-			let evalArg = (arg, _cb) => {
-				evalAsync( arg, env, (err, env, _, argval) => {
-					nextTick (_cb, err, argval);
-				});
-			};
 			
-			mapLimit (args, 32, evalArg, (err, argvals) => {
+			mapLimit (args, 32, evalArg(env), (err, argvals) => {
 				let ref = new Reference (cmd, ...argvals);
 				cb( err, env, null, ref.value);
 			});
 		}
+
+
 
 		else if (_if.equal(xarray[0])) {
 			let test = xarray[1];
@@ -233,6 +256,9 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 				evalAsync( expr, env, cb);
 			});
 		}
+
+
+
 		else if (_try.equal(xarray[0])) {
 			let expr = xarray[1];
 			let onerror = xarray[2];
@@ -245,9 +271,17 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 				else cb(null, _env, null, res);
 			});
 		}
+
+
+
+
 		else if (_def.equal(xarray[0]) || _let.equal(xarray[0])) {
+			// _def/_let form, evaluation defined in specialforms/def.js : function def
 			def (xarray[1], xarray[2], env, cb);
 		}
+
+
+
 		else if (_assign_unsafe.equal(xarray[0]) || _set_unsafe.equal(xarray[0])) {
 			let name = xarray[1];
 			let val = xarray[2];
@@ -259,6 +293,10 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 				else cb( null, env, null, value);
 			});
 		}
+
+
+
+
 		else if (_push.equal(xarray[0])) {
 			let arr = xarray[1];
 			let val = xarray[2];
@@ -268,7 +306,7 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 					let arr = _arr;
 					let val = _val;
 
-					if (arr instanceof Array || (arr instanceof Object && (arr.__itype__ === 'sequence' || arr.__itype__ === 'stream') ) ) {
+					if (arr instanceof Array || Sequence.isSequence(arr) || Stream.isStream(arr) ) {
 						arr.push(val);
 						cb( null, env, null, arr);
 					}
@@ -276,22 +314,33 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 				});
 			});
 		}
+
+
+
+
 		else if (_fn.equal(xarray[0]) || _fr.equal(xarray[0])) {
 			let params = xarray[1];
 			let body = xarray[2];
 			if (_fr.equal(xarray[0])) cb (null, env, null, {__itype__:'specialform', func: fn(params, body, env)});
 			else cb( null, env, null, fn (params, body, env) );
 		}
+
+
+
+
 		else if (_rho.equal(xarray[0])) {
 			let pattern = xarray[1];
 			let resolution = xarray[2];
 			evalAsync( pattern, env, (err, _env, _, val) => {
-					let sts = env.rho.accept(val, resolution);
-					if (sts instanceof IError) cb( sts);
-					else cb( null, env, null, env);
+				let sts = env.rho.accept(val, resolution);
+				if (sts instanceof IError) cb( sts);
+				else cb( null, env, null, env);
 			});
 		}
-		else if (_begin.equal(xarray[0]) || _sync.equal(xarray[0]) || _coll.equal(xarray[0])) {
+
+
+
+		else if (_begin.equal(xarray[0]) || _sync.equal(xarray[0]) || _coll.equal(xarray[0]) || _module.equal(xarray[0]) ) {
 			let root = x.cdr;
 			let cur = root;
 			let isColl = _coll.equal(xarray[0]);
@@ -313,17 +362,20 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 				(callback) => {
 					evalAsync( args[i], _env, (err, __env, _, argval) => {
 						i += 1;
-						nextTick (callback, err, argval);
+						callback(err, argval);
 					});
 				},
 
 				(err, res) => {
 					if (unsyncFlag) _env.unsync();
 					if (isColl) cb( err, env, null, _env.collection.obj);
-					else nextTick (cb, err, _env, null, res);
+					else cb (err, _env, null, res);
 				}
 			);
 		}
+
+
+
 		else if (_stream.equal(xarray[0])) {
 			let func = xarray[1];
 			let arglist = xarray.slice(2);
@@ -358,12 +410,16 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 				cb (err, env, null, new Stream(corefn, env) );
 			});
 		}
+
+
+
+
 		else if (_on.equal(xarray[0])) {
 			let controlStream = xarray[1];
 			let expr = xarray[2];
 			
 			evalAsync( controlStream, env, (err, _env, _, cs) => {
-				if (typeof cs === 'object' && cs.__itype__ === 'stream') {
+				if (Stream.isStream(cs)) {
 					let corefn = (updatefn) => {
 						cs.addcb((err, _env, _cb, val) => {
 							evalAsync( expr, env, (err, _env, _, val) => {
@@ -376,44 +432,61 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 					let stream = new Stream (corefn, env);
 					cb( err, env, null, stream);
 				}
-				else cb ('_on expects a Stream, '+Cell.stringify(streamObj)+' is not a Stream');
+				else cb ('_on expects a Stream, '+Cell.stringify(controlStream)+' is not a Stream');
 			});
 		}
+
+
+
+
 		else if (_pull.equal(xarray[0])) {
 			let stream = xarray[1];
 			evalAsync( stream, env, (err, _env, _, s) => {
-				if (s instanceof Object && s.__itype__==='stream')
-					cb( null, env, null, s.value);
-				else if (s instanceof Array)
-					cb( null, env, null, s.shift());
-				else if (s instanceof Object && s.__itype__ === 'sequence')
-					cb( null, env, null, s.pull());
+				if (Stream.isStream(s)) cb( null, env, null, s.value);
+				else if (s instanceof Array) cb( null, env, null, s.shift());
+				else if (Sequence.isSequence(s)) cb( null, env, null, s.pull());
 				else cb( new IError("can pull from Streams, Arrays and Sequences"));
 			});
 		}
+
+
+
+
 		else if (_pop.equal(xarray[0])) {
 			let arr = xarray[1];
 			evalAsync( arr, env, (err, _env, _, arr) => {
-				if (arr instanceof Array || (arr instanceof Object && arr.__itype__ === 'sequence') )
-					cb( null, env, null, arr.pop());
+				if (arr instanceof Array || Sequence.isSequence(arr) ) cb( null, env, null, arr.pop());
 				else cb( new IError("can pop from Arrays and Sequences"));
 			});
 		}
+
+
+
+
 		else if (_do.equal(xarray[0])) {
 			let stream = xarray[1];
 			evalAsync( stream, env, (err, _env, _, streamObj) => {
-				if (typeof streamObj === 'object' && streamObj.__itype__ === 'stream')
-					streamObj.addcb ((err) => { if(err) throw err;} );
-				else cb ('_do expects a Stream, '+Cell.stringify(streamObj)+' is not a Stream');
+				if (Stream.isStream(streamObj)) {
+					streamObj.addcb (defaultCallback());
+					cb( null, env, null, null);
+				}
+				else cb ('_do expects a Stream, '+Cell.stringify(stream)+' is not a Stream');
 			});
-			cb( null, env, null, null);
 		}
-		else if (_include.equal(xarray[0])) {
-			let includefn = env.get(xarray[0]);
+
+
+
+
+		else if (_include.equal(xarray[0]) || _use.equal(xarray[0]) ) {
+			let includefn = env.get(_include);
 			evalAsync( xarray[1], env, (err, _env, _, sourcename) => {
 				nextTick (includefn, err, env, cb, sourcename);
 			});
 		}
+
+
+
+
 		else if (_import.equal(xarray[0])) {
 			let importfn = env.get(xarray[0]);
 			if (_egg.equal(xarray[1])) cb (null, env, null, egg());
@@ -425,48 +498,58 @@ export default function evalAsync (x, env, cb=defaultCallback ) {
 				});
 			});
 		}
+
+
+
+
 		else {
-			nextTick (evalAsync, xarray[0], env, (err, env, _, func) => {
-				if (func instanceof Object && func.__itype__ === "env") {
+			evalAsync (xarray[0], env, (err, env, _, func) => {
+
+
+				if (Env.isEnv(func)) {
 					let acell = x.cdr;
 					let reduced = func.rho.reduce (acell, env);
 					if (reduced === null)  //cb( null, env, null, null);
 						evalAsync ( Cell.list(xarray.slice(1)), env, cb);
 					else 
-						nextTick (evalAsync, reduced, env, cb);
+						evalAsync(reduced, env, cb);
 				}
 				
-				else if (func instanceof Object && func.__itype__ === 'stream') {
+
+
+
+				else if (Stream.isStream(func)) {
 					func.addcb(cb)
 					cb( err, env, null, func.value);
 				}
 				
+
+
+
 				else if (func instanceof Object && func.__itype__ === 'specialform') {
 					func = func.func;
 					let args = xarray.slice(1);
-					let _env = new Env (null, null, env);
-					func (null, _env, cb, ...args);
+					func (null, env, cb, ...args);
 				}
+
+
+
 
 				else if (func instanceof Function) {
 					let args = xarray.slice(1);
-					let evalArg = (arg, _cb) => {
-						evalAsync( arg, env, (err, env, _, argval) => {
-							_cb( err, argval);
-						});
-					};
-					
-					mapLimit (args, 64, evalArg, (err, argvals) => {
-						let _env = new Env (null, null, env);
-						nextTick (func, err, _env, cb, ...argvals);
-					});
+					mapLimit (args, 64, evalArg(env), 
+						(err, argvals) => { func(err, env, cb, ...argvals); }
+					);
 				}
-				else {
-					cb (null, env, null, x);
-				}
+
+
+
+				else cb (null, env, null, x);
+			
+			
+			
 			});
 		}
 	});
-	return;
 }
 

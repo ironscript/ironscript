@@ -23,7 +23,6 @@
 
 
 import Env from './env.js';
-import {nextTick} from 'async-es';
 import IronSymbol from './symbol.js';
 
 class Store {};
@@ -33,9 +32,13 @@ export class Reference {
     this.__itype__ = 'reference';
     this.obj = obj;
     this.keys = keys;
-		if (typeof obj === 'object' && obj.__itype__ === 'env') this.cmd = 'get';
+		if (Env.isEnv(obj)) this.cmd = 'get';
 		else this.cmd = cmd;
   }
+
+	static isReference (obj) {
+		return typeof obj === 'object' && obj.__itype__ === 'reference';
+	}
 
   get value () {
     if (this.cmd === 'get') return this.get();
@@ -47,8 +50,8 @@ export class Reference {
     let obj = this.obj;
     for (let key of this.keys) {
       if (typeof obj === 'object') {
-        if (obj.__itype__ === 'collection' || obj.__itype__ === 'sequence')  obj = obj.get (key);
-        if (obj.__itype__ === 'env')  obj = obj.get (new IronSymbol(key));
+        if (Collection.isCollection (obj) || Sequence.isSequence(obj) )  obj = obj.get (key);
+        if (Env.isEnv(obj))  obj = obj.get (new IronSymbol(key));
         else obj = obj[key];
       }
       else return undefined;
@@ -60,13 +63,13 @@ export class Reference {
     let obj = this.obj;
     for (let key of this.keys.slice(0,-1)) {
       if (typeof obj === 'object') {
-        if (obj.__itype__ === 'collection' || obj.__itype__ === 'sequence') obj = obj.get(key);
+        if (Collection.isCollection (obj) || Sequence.isSequence(obj) )  obj = obj.get (key);
         else obj = obj[key];
       }
       else return undefined;
     }
     if (typeof obj === 'object') {
-      if (obj.__itype__ === 'collection' || obj.__itype__ === 'sequence')  {
+			if (Collection.isCollection (obj) || Sequence.isSequence(obj) )  {
         obj.set(this.keys[this.keys.length-1], val);
         return val;
       }
@@ -101,6 +104,10 @@ export class Collection extends Store{
       return this.obj;
     }
   }
+
+	static isCollection (obj) {
+		return typeof obj === 'object' && obj.__itype__ === 'collection';
+	}
 }
 
 export class Sequence extends Store{
@@ -136,6 +143,10 @@ export class Sequence extends Store{
       return this.arr.pop();
     }
   }
+
+	static isSequence (obj) {
+		return typeof obj === 'object' && obj.__itype__ === 'sequence';
+	}
 }
 
 

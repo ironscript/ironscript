@@ -1,0 +1,9 @@
+_sync
+	(_let ajax-get-file @{
+		var req = new Http.Get (args[0], true);
+		req.start().then( function (res) {
+			$return (res);
+		}).fail( function (err, errcode) {
+			if (err) $throw (errcode);
+		});
+	}@ )

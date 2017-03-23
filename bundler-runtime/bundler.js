@@ -10,6 +10,9 @@ const _begin = new IronSymbol ('_begin');
 const _sync = new IronSymbol ('_sync');
 const _include = new IronSymbol ('_include');
 const _import = new IronSymbol ('_import');
+const _coll = new IronSymbol ('_coll');
+const _module = new IronSymbol ('_module');
+const _use = new IronSymbol ('_use');
 
 class Bundler {
   constructor (basedir) {
@@ -24,13 +27,13 @@ class Bundler {
 
   eval (x) {
     if (x instanceof Cell) {
-      if (_begin.equal(x.car) || _sync.equal(x.car)) {
+      if (_begin.equal(x.car) || _sync.equal(x.car) || _coll.equal(x.car) || _module.equal(x.car) ) {
         while (x.cdr instanceof Cell) {
           this.eval(x.cdr);
           x = x.cdr;
         }
       }
-      else if (_import.equal(x.car) || _include.equal(x.car)) {
+      else if (_import.equal(x.car) || _include.equal(x.car) || _use.equal(x.car) ) {
         this.readfile (x.cdr.car);
       }
       else this.eval(x.car);
@@ -60,7 +63,7 @@ class Bundler {
     let filename = join(srcdir, basename(x));
     if (!this.visited.has(filename)) {
       let src = readFileSync(filename, 'utf8');
-      
+
       this.$.touch(basename(x));
       this.$.open(basename(x)).write(src);
       let oldbase = this.basedir;
@@ -88,10 +91,6 @@ export default function bundle () {
   let p = {config: config, rootfs: bundleStr};
   let ps = JSON.stringify(p, null);
   return "ironscript.runPackage("+JSON.stringify(ps)+");";
-  
-  return "ironscript.runPackage('"+
-    JSON.stringify({ config: config, rootfs: bundleStr.replace(/\"/g, '\\"') }, null).replace(/\'/g,"\\'") +
-    "');";
 }
 
 /*

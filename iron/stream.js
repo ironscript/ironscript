@@ -47,6 +47,10 @@ export default class Stream {
         nextTick (cb, null, this.env, null, val);
     });
   }
+
+	static isStream (obj) {
+		return obj instanceof Object && obj.__itype__ === 'stream';
+	}
 };
     
 

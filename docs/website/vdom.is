@@ -1,0 +1,292 @@
+_sync "VDOM : The Virtual DOM implementation in Ironscript"
+  (_include "stdlib")
+
+
+  [defun h (type props :children) {
+		[.props = props]
+    
+		[parse-type-string = @{
+			var type = args[0];
+			var idDelim = args[1];
+			var classDelim = args[2];
+			if (!idDelim) idDelim = '#';
+			if (!classDelim) classDelim = '.';
+
+			function parseClass (str) {
+				var tarr = str.split(classDelim);
+				var type = "div";
+				if (classDelim !== str[0]) type = tarr[0];
+				return [type, tarr.slice(1).join(' ')];
+			}
+
+			function parseId (str) {
+				var tarr = str.split(idDelim);
+				if (idDelim === str[0]) return ["div", "", tarr[1]];
+				else if (tarr.length > 1) {
+					let ret = parseClass(tarr[0]);
+					ret.push(tarr[1]);
+					return ret;
+				}
+				else return parseClass(tarr[0]);
+			}
+			$return (parseId(type));
+		}@ ]
+		
+    [t = (parse-type-string type) ]
+    [if ["object" === (typeof t)]
+      then (_begin
+        [.type = t.0]
+        [props.class = t.1]
+				[props.id = t.2]
+      )
+			else [.type = t]
+    ]
+    [if children [.children = (_seq :children)] ]
+  } ]
+
+	[_rho (H @tag) (h @tag {}) ]
+	[_rho (H @tag @props) (h @tag @props) ]
+	[_rho (H @tag @props :@children) (h @tag @props :@children) ]
+	[_rho (T @tag :@children) (h @tag {} :@children) ]
+	[_rho (T @tag) (h @tag {}) ]
+
+
+
+  [COMPONENTS = {}]
+	[NOOP = (_fn () NIL) ]
+	[PORT = (_fn () (_stream NOOP NIL) ) ]
+
+
+	[defun vnode (node id) (_begin
+		;(_echo node)
+    ;[if (not id) [id = "."]]
+		;(_echo node)
+    [type = node.type]
+    [if type
+      then (_begin
+        [componentfn = (_dot COMPONENTS type)]
+        [if componentfn
+          then (_begin
+            [nd = (componentfn node.props)]
+            [if node.props.id then (vnode nd node.props.id) else (vnode nd ".")]
+          )
+					else {
+            [.type = type]
+            [.props = node.props]
+            [if .props.id then [.id = .props.id] else [.id = "."] ]
+            [if node.children
+              [.children = (_map node.children (_fn (child index) 
+                (vnode child (concat .id "." index) )
+              ) ) ]
+            ] 
+          }
+        ]
+      )
+			else node
+    ]
+  )]
+
+
+  
+
+  [EVENTS = {
+    [init = @{
+      var capt = true;
+      if (args[0] === "false") capt = false;
+      ("keypress keydown keyup click dbclick scroll focus blur change search select submit input invalid".split(" "))
+			.forEach (function (e) {
+				document.body.addEventListener(e, function (ev) {$yield(ev); ev.stopPropagation();}, capt) ;
+			});
+    }@ ]
+		
+
+    [.event-stream = (_stream init "true")]
+    
+    [listeners = {}]
+    [defun .listen (id event port)
+      [(_dot listeners (concat id ":" event) ) = port]
+    ]
+    [defun .mute (id event) [(concat id ":" event) = NIL] ]
+    [defun .remove (id) ( @{
+      var obj = args[0];
+      var id = args[1];
+      Object.keys(obj).forEach(function (name) {
+        if (name.startsWith(id+'.') || name.startsWith(id+':')) obj[name] = undefined;
+      });
+    }@ listeners id ) ]
+
+    (_do (_on .event-stream 
+      (_begin
+        [e = (_pull .event-stream)]
+        [port = (_dot listeners (concat e.target.id ":" e.type ) ) ]
+        [if port (_push port e)]
+      )
+    ) )
+  } ]
+
+
+  [update-fn-internal = (_fx ( 
+		@{
+    
+			function isEventProp (name) { return /^on/.test(name); }
+			function extractEventName (name) { return name.slice(2).toLowerCase(); }
+
+			function isCustomProp (name) {
+				if (name === "id") return true;
+				if (isEventProp(name)) return true;
+				return false;
+			}
+			
+			
+			
+			function setBooleanProp ($target, name, value) {
+				if (value) $target.setAttribute(name, value);
+				$target[name] = value;
+			}
+
+			function setProp ($target, name, value) {
+				if (isCustomProp(name)) return;
+				else if (typeof value === 'boolean') setBooleanProp ($target, name, value);
+				else $target.setAttribute (name, value);
+			}
+
+			function setProps ($target, props) {
+				if (typeof props === 'object') Object.keys(props).forEach(function (name) {
+					setProp($target, name, props[name]);
+				});
+			}
+
+			function removeBooleanProp ($target, name) {
+				$target.removeAttribute (name);
+				$target[name] = false;
+			}
+
+			function removeProp ($target, name, value) {
+				if (isCustomProp(name)) return;
+				else if (typeof value === 'boolean') removeBooleanProp ($target, name);
+				else $target.removeAttribute (name);
+			}
+
+			function updateProp ($target, name, newVal, oldVal) {
+				if (!newVal) removeProp ($target, name, oldVal);
+				else if (!oldval || newVal !== oldVal) setProp ($target, name, newVal);
+				else return;
+			}
+
+			function updateProps ($target, newProps, oldProps) {
+				if (!oldProps) oldProps = {};
+				var props = Object.assign ({}, newProps, oldProps);
+				Object.keys(props).forEach (function (name) {
+					updateProp ($target, name, newProps[name], oldProps[name]);    
+				});
+			}
+
+
+			function addEventListeners (id, props) {
+				//console.log("HERE", patch);
+				if (typeof props === 'object') Object.keys(props).forEach(function (name) {
+					//console.log("Here", patch);
+					if (isEventProp(name)) addPatch.push({id: id, type: extractEventName(name), port: props[name]});
+					//console.log(id, props);
+				});
+			}
+
+
+
+			function createElement (node) {
+				if (typeof node === 'string') return document.createTextNode(node);
+				//console.log(node.type, node.id);
+				var $el = document.createElement (node.type);
+				$el.setAttribute("id", node.id);
+				setProps ($el, node.props);
+
+				//console.log(addPatch);
+
+				addEventListeners(node.id, node.props);
+				if (node.children) node.children.arr.map(createElement).forEach($el.appendChild.bind($el));
+				return $el;
+			}
+			
+			function changed (node1, node2) {
+				return typeof node1 !== typeof node2 
+					|| typeof node1 === 'string' && node1 !== node2 
+					|| node1.type !== node2.type 
+					|| node1.id !== node2.id;
+			}
+
+			function Patch () {
+				this.arr = [];
+				this.push = function (x) {this.arr.push(x); }.bind(this);
+			}
+
+			var addPatch = [];
+			var removePatch = [];
+
+			function updateElement ($par, newNode, oldNode, index=0) {
+				if (!oldNode) {
+					//console.log(addPatches);
+					$par.appendChild (createElement (newNode));
+					//console.log(addPatches);
+				}
+				else if (!newNode) {
+					removePatch.push(oldNode.id);
+					$par.removeChild($par.childNodes[index]);
+				}
+				else if (changed(newNode, oldNode)) {
+					removePatch.push(oldNode.id);
+					$par.replaceChild(createElement(newNode), $par.childNodes[index]);
+				}
+				else if (newNode.type) {
+					updateProps($par.childNodes[index], newNode.props, oldNode.props);
+					var newLen = newNode.children.arr.length;
+					var oldLen = oldNode.children.arr.length;
+
+					for (var i=0; i<newLen || i<oldLen; i++) {
+						//console.log(addPatches, removePatches, "\n\n");
+						updateElement ($par.childNodes[index], newNode.children.arr[i], oldNode.children.arr[i], i);
+					}
+				}
+			}
+
+			function update (id, newNode, oldNode) {
+				var $par = document.getElementById (id);
+				addPatch = [];
+				removePatch = [];
+				updateElement ($par, newNode, oldNode);
+				return {add:addPatch, remove:removePatch};
+			} 
+			$return (update);
+		}@ ) ) ]
+
+  
+	[defun update (id newNode oldNode) 
+		(_begin
+			[vOldNode = [if oldNode then (vnode oldNode) else NIL]]
+			[vNewNode = [if newNode then (vnode newNode) else NIL]]
+			[patches = (update-fn-internal id vNewNode vOldNode ) ]
+			(_map patches.remove (_fn (item) (EVENTS.remove item) ) )
+			(_map patches.add (_fn (item) (EVENTS.listen item.id item.type item.port) ) )
+		)
+	]
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

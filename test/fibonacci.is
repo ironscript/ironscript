@@ -1,0 +1,11 @@
+(_begin
+	(_include "stdlib")
+	(_let fib (_fn (n)
+		(_if (< n 2)
+			n
+			(+ (fib (- n 1) ) (fib (- n 2) ) )
+		)
+	) )
+	(_echo (fib 18) )
+
+)

@@ -1,0 +1,38 @@
+; easy-syntax rewriting
+_sync
+	
+	; easy maths
+
+  (_rho (@a + @b) (+ @a @b))
+  (_rho (@a - @b) (- @a @b))
+  (_rho (@a * @b) (* @a @b))
+  (_rho (@a / @b) (/ @a @b))
+  (_rho (@a % @b) (% @a @b))
+
+  (_rho (@a == @b) (== @a @b))
+  (_rho (@a != @b) (!= @a @b))
+  (_rho (@a === @b) (=== @a @b))
+  (_rho (@a !== @b) (!== @a @b))
+  
+  (_rho (@a > @b) (> @a @b))
+  (_rho (@a < @b) (< @a @b))
+  (_rho (@a >= @b) (>= @a @b))
+  (_rho (@a <= @b) (<= @a @b))
+  
+  (_rho (@a && @b) (&& @a @b))
+  (_rho (@a || @b) (|| @a @b))
+
+	
+	; easy constructs
+
+	(_rho (@a = @b) (_let @a @b))
+	(_rho (@a <-- @b) (_set! @a @b))
+	(_rho (if @a then @b else @c) (_if @a @b @c))
+	(_rho (if @a @b) (_if @a @b NIL))
+	(_rho (unless @a @b) (_if @a NIL @b))
+
+	(_rho (defun @name @params @body) [@name = (_fn @params @body) ] )
+	(_rho (defmacro @name @params @body) [@name = (_fr @params @body) ] )
+
+	(_rho (import @names from @file) (_import @file @names))
+

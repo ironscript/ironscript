@@ -1,4 +1,4 @@
-# Ironscript <sub>Beta</sub>
+# Ironscript 1.2<sub>Beta</sub>
 
 **Author** : Ganesh Prasad   
 **Email**: sir.gnsp@gmail.com
@@ -14,11 +14,17 @@ running on browsers.
 
 Why, indeed ?
 
+**tl;dr; Why walk through the dangers of the _callback hell_ , when you can _functional_ ?
+Write _functional_ like LISP and/or write JS inside it, Ironscript will do it asynchronously.
+Say bye to writing logic(?) using callbacks.**
+
+
+
 Before expolring the reasons of the *why*, I would prefer to mention that I am an individual
 programmer and development of this *language* began as one of my "what-if" ideas, and that the 
 initial design of this language is driven by the necessities of an individual developer, i.e. me.
 I would also mention that, this is the first public version of Ironscript with a README. (All
-versions prior to v1.2.1 lack any kind of documentation, hence this version is essentially the
+versions prior to v1.2 lack any kind of documentation, hence this version is essentially the
 first beta version)
 
 Development of this programming language began out of the necessity to find an *easier way*
@@ -114,7 +120,7 @@ _An USEFUL SIDE EFFECT: A reference symbol bound to a non-symbolic value is esse
 
 ##### Special Symbols
 
-There are 37 special symbols defined in Ironscript.
+There are 39 special symbols defined in Ironscript.
 
 **`_cons`**   |   **`_car`**    |   **`_cdr`**    |   **`_quote`**
 --------------|-----------------|-----------------|---------------
@@ -126,6 +132,7 @@ There are 37 special symbols defined in Ironscript.
 **`_stream`** |   **`_do`**     |   **`_on`**     |   **`_include`**
 **`_import`** |   **`_self`**   |   **`_this`**   |   **`NIL`**
 **`_true`**   |   **`_false`**  |   **`_all`**    |   **`_err`**
+**`_module`** |   **`_use`**    |                 |    
 
 
 Among these **special symbol**s `_self`, `_this`, `_true`, `_false` and `NIL` have predefined values bound to them. 
@@ -165,7 +172,7 @@ There are 27 special forms defined in Ironscript.
 
 ##### Cell
 A cell is a **cons cell** or a **dotted pair**. [Read here](https://en.wikipedia.org/wiki/Cons) for more info.
-In Ironscript instead of **dotted pair**s are written as `(a : b)` instead of `(a . b)` and `:` is called the
+In Ironscript **dotted pair**s are written as `(a : b)` instead of `(a . b)` and `:` is called the
 **construct operator**.
 
 A cell has 2 fields, the **car** field and the **cdr** field. For people acquainted with the concept of singly
@@ -670,17 +677,19 @@ The scope of this form is **synced**. The value of the form is the value of *exp
 
 
 
-### `_sync`
+### `_sync` / `_module`
 
-**form** : `(_sync exp_1 exp_2 ... exp_1)`
+*`_sync` is deprecated in favor of `_module`*
+
+**form** : `(_module exp_1 exp_2 ... exp_1)`
 
 Where *exp_1* ... *exp_n* are S-Expressions. The form **syncs the current scope** and evaluates 
 the S-Expressions one-by-one. The value of the form is the value of *exp_n*.
 
 **examples**
 
-    (_sync
-      (_include "stdlib")       ; includes stdlib
+    (_module "Test Module"
+      (_use "stdlib")           ; uses stdlib
       (_echo "hello world")     ; prints hello world
     )
 
@@ -1022,7 +1031,7 @@ The value of this form is the root scope of the imported file.
 
     ------- file : greet.is --------
 
-    (_sync
+    _module "the greeting module"
       ; define a function good-evening
       [ good-evening = (_fn (name) 
         (concat "Good evening " name " !") 
@@ -1032,12 +1041,12 @@ The value of this form is the root scope of the imported file.
       [ good-morning = (_fn (name) 
         (concat "Good morning " name " !") 
       ) ]
-    )
+    
 
 
     ------- file : main.is --------
 
-    (_begin
+    _module "The Main Module"
       ; importing greet.is, various ways
 
       ; 1. 
@@ -1052,7 +1061,7 @@ The value of this form is the root scope of the imported file.
       ; 3.
       (_import "./greet.is" _all)
       (_echo (good-evening "Eve") )               ; prints "Good evening Eve !"
-    )
+ 
 
 
 
@@ -1061,19 +1070,22 @@ The value of this form is the root scope of the imported file.
 
 
 
-### `_include`
+### `_include` / `_use`
 
-**form** : `(_include file)`
+*`_include` is deprecated in favor of `_use`*
+
+**form** : `(_include file)` `(_use file)`
 
 Where *file* is a string representing the path to the file to be included. The content of the file is read and
 evaluated in the current scope. The value of this form is the root scope of the included file.
 
 **examples**
     
-    (_begin
-      (_include "stdlib")     ; includes stdlib
-      (_echo (+ 2 3) )        ; prints 5
-    )
+    _module "Test Module"
+      
+      (_use "stdlib")     ; includes stdlib
+      (_echo [2 + 3] )    ; prints 5
+    
 
 
 

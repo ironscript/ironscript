@@ -46,6 +46,10 @@ export default class Env {
     else if (this.par) this.collection = this.par.collection;
     else this.collection = null;
   }
+
+	static isEnv (obj) {
+		return typeof obj === 'object' && obj.__itype__ === 'env';
+	}
   
   static clone (env) {
     let e = new Env(null, null, env.par);
