@@ -25,7 +25,7 @@
 import Env from './env.js';
 import IronSymbol from './symbol.js';
 
-class Store {};
+class Store {}
 
 export class Reference {
   constructor (cmd, obj, ...keys) {
@@ -90,19 +90,19 @@ export class Collection extends Store{
     else this.obj = Object.create(null);
   
 
-    this.has = (key) => { return this.obj[key] !== undefined; }
+    this.has = (key) => { return this.obj[key] !== undefined; };
   
     this.get = (key) => {
       if (typeof key !== 'string') return undefined;
       if (this.has(key)) return this.obj[key];
       return undefined;
-    }
+    };
   
     this.set = (key, val) => {
       if (typeof key !== 'string') return undefined;
       this.obj[key] = val;
       return this.obj;
-    }
+    };
   }
 
 	static isCollection (obj) {
@@ -120,7 +120,7 @@ export class Sequence extends Store{
     this.get = (ind) => {
       if (parseInt(ind) === Number(ind)) return this.arr[ind];
       return undefined;
-    }
+    };
 
     this.set = (ind, val) => {
       if (parseInt(ind) === Number(ind)) {
@@ -128,20 +128,20 @@ export class Sequence extends Store{
         return this.arr;
       }
       return undefined;
-    }
+    };
 
     this.push = (val) => {
       this.arr.push(val);
       return val;
-    }
+    };
 
     this.pull = () => {
       return this.arr.shift();
-    }
+    };
 
     this.pop = () => {
       return this.arr.pop();
-    }
+    };
   }
 
 	static isSequence (obj) {
