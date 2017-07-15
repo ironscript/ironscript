@@ -85,7 +85,7 @@ class Resolution {
 class Reduced {
   constructor (body, params, args) {
     this.body = body;
-    this.params = params
+    this.params = params;
     this.args = args;
   }
 }
