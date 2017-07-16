@@ -50,7 +50,7 @@ export default function (runtimeContext) {
   
   env.sync();
 
-  env.bind(new IronSymbol ('_readfile'), _readfile)
+  env.bind(new IronSymbol ('_readfile'), _readfile);
   env.bind(new IronSymbol ('_readsource'), _readfile);
   env.bind(new IronSymbol ('_import'), importfn(env) );
   env.bind(new IronSymbol ('_include'), includefn(env) );
