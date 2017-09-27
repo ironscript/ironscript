@@ -61,23 +61,23 @@ export function fxAsync (f) { // f = ($return, $throw, $catch, $env, ...args) =>
         _cb( null, _env, null, retval);
         exited = true;
       }
-    }
+    };
 
     let $throw = (_err) => {
       if (!exited) {
         _cb( _err, _env, null, null);
         exited = true;
       }
-    }
+    };
 
     let $catch = (catchFn) => {
       if (err) catchFn(err);
-    }
+    };
 
     let $yield = (retval) => {
       _cb( null, _env, null, retval);
-    }
+    };
 
     f($return, $throw, $catch, $yield, _env.par, ...args);
-  }
+  };
 }

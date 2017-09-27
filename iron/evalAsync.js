@@ -108,14 +108,14 @@ export const defaultCallback = () => {
     	if (err instanceof IError) err.log();
     	throw err;
   	}
-	}
+	};
 };
 
 export const endOfExecution = () => { 
 	return (err) => {
 		if (!err) console.timeEnd("Runtime");
 		else throw err;
-	}
+	};
 };
 
 export function cellToArr (cell, arr, env, cb) {
@@ -211,7 +211,7 @@ export default function evalAsync (x, env, cb=endOfExecution() ) {
 							//create a callback for async.map / async.filter
 							let cbfn = (arg, _cb) => {
 								nextTick (func, null, env, (err, _env, _, val) => {_cb(err, val);}, arg.val, arg.index);
-							}
+							};
 
 							if (_map.equal(xarray[0])) mapLimit (arr, 32, cbfn, (err, newarr) => {
 								if (seqIsSequence) cb( err, env, null, new Sequence(newarr));
@@ -519,7 +519,7 @@ export default function evalAsync (x, env, cb=endOfExecution() ) {
 
 
 				else if (Stream.isStream(func)) {
-					func.addcb(cb)
+					func.addcb(cb);
 					cb( err, env, null, func.value);
 				}
 				

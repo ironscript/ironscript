@@ -29,7 +29,7 @@ export default class Package {
         	head.removeChild(script);
         	this._loadlock -= 1;
         	if(this._loadlock===0) this.run();
-      	}
+      	};
       	loadScript (imp.url, cb);
 			}
     }

@@ -89,7 +89,7 @@ export function importfn (env) {
         });
       } , basename(sourcename));
     }
-  }
+  };
 }
 
 export function includefn (env) {
@@ -130,7 +130,7 @@ export function includefn (env) {
         });
       }, basename(sourcename));
     }
-  }
+  };
 }
 
 

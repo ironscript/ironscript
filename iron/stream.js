@@ -33,13 +33,13 @@ export default class Stream {
     this.value = undefined;
 
     this.callbacks = [];
-    this.addcb = (cb) => { this.callbacks.push(cb); }
+    this.addcb = (cb) => { this.callbacks.push(cb); };
 
     this.push = (val) => {
       this.value = val;
       if (val !== null && val !== undefined) for (let cb of this.callbacks)
         nextTick (cb, null, this.env, null, val);
-    }
+    };
 
     nextTick (this.core, (val) => {
       this.value = val;
@@ -51,7 +51,7 @@ export default class Stream {
 	static isStream (obj) {
 		return obj instanceof Object && obj.__itype__ === 'stream';
 	}
-};
+}
     
 
 

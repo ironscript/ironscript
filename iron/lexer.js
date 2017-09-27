@@ -146,7 +146,7 @@ export default class Lexer {
         let ret = []; 
         for (let x of arr) {
           if (isNaN(Number(x))) ret.push(x);
-          else ret.push(Number(x))
+          else ret.push(Number(x));
         }
         return ret;
       }
